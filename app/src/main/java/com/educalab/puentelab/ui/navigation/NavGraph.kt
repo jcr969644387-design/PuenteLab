@@ -1,8 +1,12 @@
 package com.educalab.puentelab.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,18 +36,27 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Destinations.ACADEMY) {
-            if (profile != null && !profile!!.onboardingCompleted) {
-                OnboardingScreen(onFinished = { navController.navigate(Destinations.PROFILE_SETUP) })
-            } else {
-                val vm: AcademyViewModel = viewModel(factory = viewModelFactory)
-                AcademyHomeScreen(
-                    viewModel = vm,
-                    onOpenScenarios = { navController.navigate(Destinations.SCENARIOS) },
-                    onOpenMaterials = { navController.navigate(Destinations.MATERIALS) },
-                    onOpenDesigns = { navController.navigate(Destinations.DESIGNS) },
-                    onOpenProgress = { navController.navigate(Destinations.PROGRESS) },
-                    onContinueChallenge = { id -> navController.navigate(Destinations.builder(id)) }
-                )
+            val currentProfile = profile
+            when {
+                currentProfile == null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                !currentProfile.onboardingCompleted -> {
+                    OnboardingScreen(onFinished = { navController.navigate(Destinations.PROFILE_SETUP) })
+                }
+                else -> {
+                    val vm: AcademyViewModel = viewModel(factory = viewModelFactory)
+                    AcademyHomeScreen(
+                        viewModel = vm,
+                        onOpenScenarios = { navController.navigate(Destinations.SCENARIOS) },
+                        onOpenMaterials = { navController.navigate(Destinations.MATERIALS) },
+                        onOpenDesigns = { navController.navigate(Destinations.DESIGNS) },
+                        onOpenProgress = { navController.navigate(Destinations.PROGRESS) },
+                        onContinueChallenge = { id -> navController.navigate(Destinations.builder(id)) }
+                    )
+                }
             }
         }
         composable(Destinations.PROFILE_SETUP) {

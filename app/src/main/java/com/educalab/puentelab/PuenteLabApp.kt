@@ -1,7 +1,9 @@
 package com.educalab.puentelab
 
 import android.app.Application
+import android.util.Log
 import com.educalab.puentelab.util.AppContainer
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,7 +13,10 @@ class PuenteLabApp : Application() {
     lateinit var container: AppContainer
         private set
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val startupExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e("PuenteLabApp", "Fallo al inicializar datos locales", throwable)
+    }
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + startupExceptionHandler)
 
     override fun onCreate() {
         super.onCreate()
