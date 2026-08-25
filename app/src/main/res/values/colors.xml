@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta PuenteLab: azul plano de ingeniero + naranja de obra + verdes de valle -->
+    <color name="blueprint_900">#0D2A4A</color>
+    <color name="blueprint_700">#164A7A</color>
+    <color name="blueprint_500">#2E6DB4</color>
+    <color name="blueprint_300">#7FB2E5</color>
+    <color name="blueprint_100">#DCEBFA</color>
+
+    <color name="site_orange">#F2994A</color>
+    <color name="site_orange_dark">#C9701F</color>
+    <color name="site_amber">#F5C34C</color>
+
+    <color name="canyon_terracotta">#C9683D</color>
+    <color name="forest_green">#3F8F5D</color>
+    <color name="river_teal">#2CAFC0</color>
+    <color name="city_violet">#6B5CA5</color>
+    <color name="mountain_slate">#5C6B7A</color>
+
+    <color name="success_green">#2FAE6E</color>
+    <color name="warning_red">#E2574C</color>
+
+    <color name="paper_bg">#F7F5EF</color>
+    <color name="ink_900">#1C2530</color>
+    <color name="ink_600">#4A5568</color>
+    <color name="white">#FFFFFF</color>
+</resources>

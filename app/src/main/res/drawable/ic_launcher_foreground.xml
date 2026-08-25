@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Tablero del puente -->
+    <path android:fillColor="#F5C34C" android:pathData="M24,66 L84,66 L84,74 L24,74 Z" />
+    <!-- Cercha (triángulos) -->
+    <path
+        android:strokeColor="#F2994A"
+        android:strokeWidth="4"
+        android:pathData="M24,66 L34,50 L44,66 L54,50 L64,66 L74,50 L84,66" />
+    <!-- Apoyos -->
+    <path android:fillColor="#F2994A" android:pathData="M20,74 L30,74 L26,86 L16,86 Z" />
+    <path android:fillColor="#F2994A" android:pathData="M78,74 L88,74 L92,86 L82,86 Z" />
+    <!-- Cable/torre suspensión decorativa -->
+    <path
+        android:strokeColor="#F5C34C"
+        android:strokeWidth="3"
+        android:pathData="M54,50 L54,30" />
+    <path android:fillColor="#F5C34C" android:pathData="M50,26 L58,26 L58,32 L50,32 Z" />
+</vector>

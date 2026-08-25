@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PuenteLab</string>
+    <string name="app_tagline">Diseña. Construye. Cruza.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title_1">Bienvenido a PuenteLab</string>
+    <string name="onboarding_body_1">Un estudio de ingeniería te necesita: hay ríos, cañones y valles que separan a la gente, y tú vas a unirlos.</string>
+    <string name="onboarding_title_2">Conoce a PIVOT</string>
+    <string name="onboarding_body_2">PIVOT es el robot topógrafo del estudio. Te acompañará con pistas cuando un diseño no aguante.</string>
+    <string name="onboarding_title_3">Construye de verdad</string>
+    <string name="onboarding_body_3">Coloca nodos, tiende barras y elige materiales. Cada puente se prueba con un vehículo real antes de aprobarlo.</string>
+    <string name="onboarding_title_4">Tus datos se quedan aquí</string>
+    <string name="onboarding_body_4">PuenteLab funciona sin conexión. No pedimos tu nombre real ni ningún dato personal: solo un apodo y un avatar.</string>
+    <string name="onboarding_cta_next">Siguiente</string>
+    <string name="onboarding_cta_start">Entrar al estudio</string>
+
+    <!-- Perfil -->
+    <string name="profile_pick_alias">Elige tu apodo de ingeniero/a</string>
+    <string name="profile_pick_avatar">Elige tu avatar</string>
+    <string name="profile_alias_hint">Ej: ArcoVeloz, LunaAcero…</string>
+    <string name="profile_confirm">Empezar a construir</string>
+</resources>
