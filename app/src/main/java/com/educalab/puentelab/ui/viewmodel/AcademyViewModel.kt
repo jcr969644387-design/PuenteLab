@@ -3,6 +3,7 @@ package com.educalab.puentelab.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.educalab.puentelab.data.local.dao.UserBadgeDao
+import com.educalab.puentelab.data.local.entity.UserProfileEntity
 import com.educalab.puentelab.data.repository.CatalogRepository
 import com.educalab.puentelab.data.repository.ProfileRepository
 import com.educalab.puentelab.domain.logic.ProgressEngine
@@ -26,7 +27,7 @@ class AcademyViewModel(
     val uiState: StateFlow<AcademyUiState> = combine(
         profileRepository.observeProfile(),
         catalogRepository.observeBadges(),
-        userBadgeDao.observeForUser()
+        userBadgeDao.observeForUser(UserProfileEntity.LOCAL_USER_ID)
     ) { profile, allBadges, unlocked ->
         AcademyUiState(
             alias = profile?.alias ?: "",

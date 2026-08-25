@@ -23,6 +23,7 @@ import com.educalab.puentelab.ui.components.ScenarioScene
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.BuilderViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuilderScreen(
     challengeId: String,
