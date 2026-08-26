@@ -1,6 +1,5 @@
 package com.educalab.puentelab.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -34,8 +33,14 @@ private val DarkColors = darkColorScheme(
     error = WarningRed
 )
 
+/**
+ * PuenteLab siempre usa el esquema de colores claro: los textos y componentes de toda la app
+ * usan colores fijos (Ink900, Ink600, etc.) pensados para fondos claros, y nunca se diseñó una
+ * paleta oscura coherente. Seguir el tema oscuro del sistema volvía ilegibles muchas pantallas
+ * (tarjetas oscuras con texto oscuro encima), así que se ignora isSystemInDarkTheme().
+ */
 @Composable
-fun PuenteLabTheme(useDark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun PuenteLabTheme(useDark: Boolean = false, content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (useDark) DarkColors else LightColors,
         typography = PuenteLabTypography,

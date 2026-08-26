@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.educalab.puentelab.domain.model.BridgeChallengeSpec
 import com.educalab.puentelab.domain.model.MemberRole
 import com.educalab.puentelab.domain.model.StructureType
 import com.educalab.puentelab.ui.components.BuilderCanvasView
@@ -34,6 +35,8 @@ fun BuilderScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val challenge = state.challenge
     var showSaveDialog by remember { mutableStateOf(false) }
+    // Se muestra sola al entrar a un desafío para explicar la dinámica; se puede reabrir con el "?".
+    var showInstructions by remember { mutableStateOf(true) }
 
     Scaffold(
         containerColor = PaperBg,
@@ -44,6 +47,7 @@ fun BuilderScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") }
                 },
                 actions = {
+                    IconButton(onClick = { showInstructions = true }) { Icon(Icons.Filled.HelpOutline, contentDescription = "Cómo jugar") }
                     IconButton(onClick = { viewModel.clearAll() }) { Icon(Icons.Filled.RestartAlt, contentDescription = "Reiniciar diseño") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Blueprint700, titleContentColor = White, navigationIconContentColor = White, actionIconContentColor = White)
@@ -61,6 +65,7 @@ fun BuilderScreen(
         }
 
         Column(Modifier.fillMaxSize().padding(padding)) {
+            MissionBanner(challenge)
             BudgetBar(cost = state.liveCost, budget = challenge.budget)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -75,6 +80,10 @@ fun BuilderScreen(
                     onTapEmpty = viewModel::placeFreeNode
                 )
             }
+        }
+
+        if (showInstructions) {
+            InstructionsDialog(onDismiss = { showInstructions = false })
         }
 
         if (state.showResult && state.lastResult != null) {
@@ -95,6 +104,49 @@ fun BuilderScreen(
                 onDismiss = { showSaveDialog = false }
             )
         }
+    }
+}
+
+/** Objetivo del desafío, siempre visible arriba del lienzo para no perder de vista la misión. */
+@Composable
+private fun MissionBanner(challenge: BridgeChallengeSpec, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(Blueprint700)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Text("MISIÓN", style = MaterialTheme.typography.labelMedium, color = SiteAmber)
+        Spacer(Modifier.height(2.dp))
+        Text(challenge.narrativeIntro, style = MaterialTheme.typography.bodyMedium, color = White)
+    }
+}
+
+/** Explica la dinámica del juego paso a paso: qué tocar y en qué orden. */
+@Composable
+private fun InstructionsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cómo construir tu puente") },
+        text = {
+            Column {
+                InstructionStep("1", "Elige un material y un rol (Calzada, Riostra, Cable o Torre) en la barra de abajo.")
+                InstructionStep("2", "Toca un punto vacío del lienzo para colocar un nodo (punto de apoyo).")
+                InstructionStep("3", "Toca dos nodos, uno después del otro, para unirlos con una barra del material y rol que elegiste.")
+                InstructionStep("4", "Activa \"Apoyo nuevo\" si quieres pagar por un punto de apoyo extra en el suelo.")
+                InstructionStep("5", "Cuando el diseño esté listo, presiona \"Probar puente\" para simular el cruce del vehículo.")
+                InstructionStep("6", "Vigila el presupuesto arriba: si te pasas, el diseño no aprueba aunque aguante.")
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Entendido") } }
+    )
+}
+
+@Composable
+private fun InstructionStep(number: String, text: String) {
+    Row(Modifier.padding(vertical = 4.dp)) {
+        Text("$number.", color = SiteOrange, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(22.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = Ink900)
     }
 }
 
