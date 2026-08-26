@@ -28,6 +28,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".CrashReportActivity"
+            android:exported="false"
+            android:process=":crashreport"
+            android:theme="@style/Theme.PuenteLab"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>
