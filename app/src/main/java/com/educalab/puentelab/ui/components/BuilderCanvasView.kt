@@ -67,7 +67,8 @@ fun BuilderCanvasView(
             )
         }
 
-        // nodos
+        // nodos: cada tipo tiene su propia forma (no solo color), para no confundirlos entre
+        // sí ni con las burbujas de color de los materiales en la barra de abajo
         for (node in design.nodes) {
             val offset = mapper.toOffset(node.point)
             val isPending = node.id == pendingNodeId
@@ -78,10 +79,35 @@ fun BuilderCanvasView(
                 else -> SiteOrange
             }
             if (isPending) {
-                drawCircle(SuccessGreen.copy(alpha = 0.35f), radius = 26f, center = offset)
+                drawCircle(SuccessGreen.copy(alpha = 0.35f), radius = 28f, center = offset)
             }
             drawCircle(baseColor, radius = 16f, center = offset)
             drawCircle(Color.White, radius = 16f, center = offset, style = Stroke(width = 3f))
+            when {
+                // orilla fija: cuadrado blanco (como un poste clavado)
+                node.anchorSide != AnchorSide.NONE -> drawRect(
+                    color = Color.White,
+                    topLeft = Offset(offset.x - 5f, offset.y - 5f),
+                    size = androidx.compose.ui.geometry.Size(10f, 10f)
+                )
+                // apoyo del nivel: triángulo blanco (como una roca de apoyo)
+                node.isFixedByLevel -> {
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(offset.x, offset.y - 6f)
+                        lineTo(offset.x + 6f, offset.y + 5f)
+                        lineTo(offset.x - 6f, offset.y + 5f)
+                        close()
+                    }
+                    drawPath(path, Color.White)
+                }
+                // apoyo pagado por el jugador: signo "$"
+                node.isUserPier -> drawCircle(Color.White, radius = 3f, center = offset)
+                // nodo libre: cruz blanca (punto para conectar barras)
+                else -> {
+                    drawLine(Color.White, Offset(offset.x - 5f, offset.y), Offset(offset.x + 5f, offset.y), strokeWidth = 3f)
+                    drawLine(Color.White, Offset(offset.x, offset.y - 5f), Offset(offset.x, offset.y + 5f), strokeWidth = 3f)
+                }
+            }
         }
     }
 }

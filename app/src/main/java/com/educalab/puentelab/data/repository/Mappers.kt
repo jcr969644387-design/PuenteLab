@@ -5,7 +5,8 @@ import com.educalab.puentelab.domain.model.*
 
 fun MaterialEntity.toDomain(): MaterialSpec = MaterialSpec(
     id = id, name = name, description = description, strength = strength,
-    costPerUnit = costPerUnit, weightFactor = weightFactor, allowedRoles = allowedRoles
+    costPerUnit = costPerUnit, weightFactor = weightFactor, allowedRoles = allowedRoles,
+    unlockLevel = unlockLevel
 )
 
 fun BridgeChallengeEntity.toDomain(): BridgeChallengeSpec = BridgeChallengeSpec(

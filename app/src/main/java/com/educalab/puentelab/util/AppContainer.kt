@@ -1,6 +1,7 @@
 package com.educalab.puentelab.util
 
 import android.content.Context
+import com.educalab.puentelab.data.local.AppPreferences
 import com.educalab.puentelab.data.local.PuenteLabDatabase
 import com.educalab.puentelab.data.repository.CatalogRepository
 import com.educalab.puentelab.data.repository.DesignRepository
@@ -16,6 +17,7 @@ import com.educalab.puentelab.data.seed.DatabaseSeeder
 class AppContainer(context: Context) {
     val database: PuenteLabDatabase = PuenteLabDatabase.getInstance(context)
     val seeder = DatabaseSeeder(database)
+    val appPreferences = AppPreferences(context)
 
     val profileRepository = ProfileRepository(database.userProfileDao())
     val catalogRepository = CatalogRepository(

@@ -2,11 +2,15 @@ package com.educalab.puentelab.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.educalab.puentelab.data.local.AppPreferences
+import com.educalab.puentelab.data.local.entity.VehicleEntity
 import com.educalab.puentelab.data.repository.CatalogRepository
 import com.educalab.puentelab.data.repository.DesignRepository
+import com.educalab.puentelab.data.repository.ProfileRepository
 import com.educalab.puentelab.data.repository.SaveDesignResult
 import com.educalab.puentelab.data.repository.SimulationRepository
 import com.educalab.puentelab.data.repository.toDomain
+import com.educalab.puentelab.domain.logic.ProgressEngine
 import com.educalab.puentelab.domain.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,13 +31,18 @@ data class BuilderUiState(
     val liveCost: Double = 0.0,
     val lastResult: SimulationResult? = null,
     val showResult: Boolean = false,
-    val transientMessage: String? = null
+    val transientMessage: String? = null,
+    val playerLevel: Int = 1,
+    val testVehicle: VehicleEntity? = null,
+    val autoShowInstructions: Boolean = false
 )
 
 class BuilderViewModel(
     private val catalogRepository: CatalogRepository,
     private val designRepository: DesignRepository,
-    private val simulationRepository: SimulationRepository
+    private val simulationRepository: SimulationRepository,
+    private val profileRepository: ProfileRepository,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BuilderUiState())
@@ -45,12 +54,18 @@ class BuilderViewModel(
             val challenge = catalogRepository.getChallenge(challengeId)?.toDomain()
             val draft = designRepository.getOrCreateDraft(challengeId)
             val seededDesign = if (draft.nodes.isEmpty() && challenge != null) seedBanks(draft, challenge) else draft
+            val profile = profileRepository.getOrCreateProfile()
+            val testVehicle = challenge?.let { catalogRepository.getDefaultVehicleForScenario(it.scenario) }
+            val alreadySeenInstructions = appPreferences.hasSeenBuilderInstructionsOnce()
 
             _uiState.value = _uiState.value.copy(
                 loading = false,
                 challenge = challenge,
                 design = seededDesign,
-                selectedMaterialId = _uiState.value.selectedMaterialId
+                selectedMaterialId = _uiState.value.selectedMaterialId,
+                playerLevel = ProgressEngine.levelInfo(profile.cachedXp).level,
+                testVehicle = testVehicle,
+                autoShowInstructions = !alreadySeenInstructions
             )
             recomputeCost()
         }
@@ -62,6 +77,13 @@ class BuilderViewModel(
                 }
             }
         }
+    }
+
+    /** Marca el tutorial como visto para que no se vuelva a abrir solo en el próximo desafío. */
+    fun markInstructionsSeen() {
+        if (!_uiState.value.autoShowInstructions) return
+        _uiState.value = _uiState.value.copy(autoShowInstructions = false)
+        viewModelScope.launch { appPreferences.markBuilderInstructionsSeen() }
     }
 
     /** Coloca los nodos de orilla fijos (izquierda/derecha) y los apoyos gratuitos del nivel. */
@@ -184,11 +206,17 @@ class BuilderViewModel(
         viewModelScope.launch { designRepository.updateStructure(_uiState.value.design) }
     }
 
-    fun runSimulation(vehicleId: String, vehicleWeightMultiplier: Double) {
+    /** Prueba el diseño con el vehículo propio del escenario del desafío (no uno genérico). */
+    fun runSimulation() {
         val state = _uiState.value
         val challenge = state.challenge ?: return
+        val vehicle = state.testVehicle
         viewModelScope.launch {
-            val outcome = simulationRepository.runSimulation(state.design, challenge, vehicleId, vehicleWeightMultiplier)
+            val outcome = simulationRepository.runSimulation(
+                state.design, challenge,
+                vehicleId = vehicle?.id ?: "van_explorer",
+                vehicleWeightMultiplier = vehicle?.weightMultiplier ?: 1.0
+            )
             _uiState.value = _uiState.value.copy(lastResult = outcome.result, showResult = true)
         }
     }

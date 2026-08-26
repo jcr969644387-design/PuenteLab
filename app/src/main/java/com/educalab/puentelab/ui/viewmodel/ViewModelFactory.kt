@@ -12,7 +12,10 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
             AcademyViewModel::class.java -> AcademyViewModel(container.catalogRepository, container.profileRepository, container.database.userBadgeDao()) as T
             ScenariosViewModel::class.java -> ScenariosViewModel(container.catalogRepository, container.database.progressDao()) as T
             MaterialsViewModel::class.java -> MaterialsViewModel(container.catalogRepository) as T
-            BuilderViewModel::class.java -> BuilderViewModel(container.catalogRepository, container.designRepository, container.simulationRepository) as T
+            BuilderViewModel::class.java -> BuilderViewModel(
+                container.catalogRepository, container.designRepository, container.simulationRepository,
+                container.profileRepository, container.appPreferences
+            ) as T
             DesignsViewModel::class.java -> DesignsViewModel(container.designRepository, container.catalogRepository) as T
             ProgressViewModel::class.java -> ProgressViewModel(container.catalogRepository, container.database.progressDao(), container.database.userBadgeDao(), container.database.stampDao(), container.profileRepository) as T
             else -> throw IllegalArgumentException("ViewModel desconocido: $modelClass")

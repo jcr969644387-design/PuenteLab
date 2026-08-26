@@ -17,6 +17,7 @@ class CatalogRepository(
 
     fun observeVehicles() = vehicleDao.observeAll()
     suspend fun getVehicle(id: String) = vehicleDao.getById(id)
+    suspend fun getDefaultVehicleForScenario(scenario: ScenarioType) = vehicleDao.getDefaultForScenario(scenario)
 
     fun observeChallenges() = challengeDao.observeAll()
     fun observeChallengesByScenario(scenario: ScenarioType) = challengeDao.observeByScenario(scenario)

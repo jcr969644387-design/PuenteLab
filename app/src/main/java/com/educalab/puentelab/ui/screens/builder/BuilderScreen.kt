@@ -1,5 +1,8 @@
 package com.educalab.puentelab.ui.screens.builder
 
+import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,9 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.educalab.puentelab.data.local.entity.VehicleEntity
 import com.educalab.puentelab.domain.model.BridgeChallengeSpec
 import com.educalab.puentelab.domain.model.MemberRole
 import com.educalab.puentelab.domain.model.StructureType
@@ -35,8 +43,24 @@ fun BuilderScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val challenge = state.challenge
     var showSaveDialog by remember { mutableStateOf(false) }
-    // Se muestra sola al entrar a un desafío para explicar la dinámica; se puede reabrir con el "?".
-    var showInstructions by remember { mutableStateOf(true) }
+    var showInstructions by remember { mutableStateOf(false) }
+    val feedback = rememberGameFeedback()
+
+    // La primera vez que se abre CUALQUIER desafío, se muestra sola. En las siguientes ya no
+    // se abre sola (queda solo la info al tocar el "?"), y se marca como vista una sola vez.
+    LaunchedEffect(state.autoShowInstructions) {
+        if (state.autoShowInstructions) {
+            showInstructions = true
+            viewModel.markInstructionsSeen()
+        }
+    }
+    // Avisa con sonido y vibración distintos si el puente aprobó o no.
+    LaunchedEffect(state.showResult) {
+        val result = state.lastResult
+        if (state.showResult && result != null) {
+            if (result.passed) feedback.success() else feedback.failure()
+        }
+    }
 
     Scaffold(
         containerColor = PaperBg,
@@ -47,16 +71,19 @@ fun BuilderScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") }
                 },
                 actions = {
-                    IconButton(onClick = { showInstructions = true }) { Icon(Icons.Filled.HelpOutline, contentDescription = "Cómo jugar") }
-                    IconButton(onClick = { viewModel.clearAll() }) { Icon(Icons.Filled.RestartAlt, contentDescription = "Reiniciar diseño") }
+                    IconButton(onClick = { feedback.tap(); showInstructions = true }) { Icon(Icons.Filled.HelpOutline, contentDescription = "Cómo jugar") }
+                    IconButton(onClick = { feedback.tap(); viewModel.clearAll() }) { Icon(Icons.Filled.RestartAlt, contentDescription = "Reiniciar diseño") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Blueprint700, titleContentColor = White, navigationIconContentColor = White, actionIconContentColor = White)
             )
         },
         bottomBar = {
-            BuilderToolbar(state = state, viewModel = viewModel, onTest = {
-                viewModel.runSimulation(vehicleId = "van_explorer", vehicleWeightMultiplier = 1.0)
-            })
+            BuilderToolbar(
+                state = state,
+                viewModel = viewModel,
+                feedback = feedback,
+                onTest = { feedback.tap(); viewModel.runSimulation() }
+            )
         }
     ) { padding ->
         if (state.loading || challenge == null) {
@@ -65,7 +92,7 @@ fun BuilderScreen(
         }
 
         Column(Modifier.fillMaxSize().padding(padding)) {
-            MissionBanner(challenge)
+            MissionBanner(challenge, vehicle = state.testVehicle)
             BudgetBar(cost = state.liveCost, budget = challenge.budget)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -76,8 +103,8 @@ fun BuilderScreen(
                     materialsById = state.materials.associateBy { it.id },
                     pendingNodeId = state.pendingNodeId,
                     spanUnits = challenge.spanUnits,
-                    onTapNode = viewModel::tapNode,
-                    onTapEmpty = viewModel::placeFreeNode
+                    onTapNode = { feedback.tap(); viewModel.tapNode(it) },
+                    onTapEmpty = { feedback.tap(); viewModel.placeFreeNode(it) }
                 )
             }
         }
@@ -107,9 +134,37 @@ fun BuilderScreen(
     }
 }
 
+/** Sonido y vibración cortos para que tocar el lienzo y probar el puente se sientan "vivos". */
+@Composable
+private fun rememberGameFeedback(): GameFeedback {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    return remember { GameFeedback(context, haptic) }
+}
+
+private class GameFeedback(context: Context, private val haptic: HapticFeedback) {
+    private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private val toneGenerator = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 75) }.getOrNull()
+
+    fun tap() {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        runCatching { audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK) }
+    }
+
+    fun success() {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 500) }
+    }
+
+    fun failure() {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_NACK, 500) }
+    }
+}
+
 /** Objetivo del desafío, siempre visible arriba del lienzo para no perder de vista la misión. */
 @Composable
-private fun MissionBanner(challenge: BridgeChallengeSpec, modifier: Modifier = Modifier) {
+private fun MissionBanner(challenge: BridgeChallengeSpec, vehicle: VehicleEntity?, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
@@ -119,26 +174,30 @@ private fun MissionBanner(challenge: BridgeChallengeSpec, modifier: Modifier = M
         Text("MISIÓN", style = MaterialTheme.typography.labelMedium, color = SiteAmber)
         Spacer(Modifier.height(2.dp))
         Text(challenge.narrativeIntro, style = MaterialTheme.typography.bodyMedium, color = White)
+        if (vehicle != null) {
+            Spacer(Modifier.height(4.dp))
+            Text("Lo va a probar: ${vehicle.name}", style = MaterialTheme.typography.labelMedium, color = Blueprint100)
+        }
     }
 }
 
-/** Explica la dinámica del juego paso a paso: qué tocar y en qué orden. */
+/** Explica cómo se juega, con palabras simples y directas (pensado para chicos de 10 a 15 años). */
 @Composable
 private fun InstructionsDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Cómo construir tu puente") },
+        title = { Text("¿Cómo se juega?") },
         text = {
             Column {
-                InstructionStep("1", "Elige un material y un rol (Calzada, Riostra, Cable o Torre) en la barra de abajo.")
-                InstructionStep("2", "Toca un punto vacío del lienzo para colocar un nodo (punto de apoyo).")
-                InstructionStep("3", "Toca dos nodos, uno después del otro, para unirlos con una barra del material y rol que elegiste.")
-                InstructionStep("4", "Activa \"Apoyo nuevo\" si quieres pagar por un punto de apoyo extra en el suelo.")
-                InstructionStep("5", "Cuando el diseño esté listo, presiona \"Probar puente\" para simular el cruce del vehículo.")
-                InstructionStep("6", "Vigila el presupuesto arriba: si te pasas, el diseño no aprueba aunque aguante.")
+                InstructionStep("1", "Abajo elige QUÉ material vas a usar (por ejemplo Madera) y PARA QUÉ (Calzada, Riostra, Cable o Torre).")
+                InstructionStep("2", "Toca un espacio vacío del dibujo para poner un punto nuevo.")
+                InstructionStep("3", "Toca dos puntos, uno y después el otro, para unirlos con una barra.")
+                InstructionStep("4", "¿Necesitas un punto extra en el suelo? Activa \"Apoyo nuevo\" (cuesta $35).")
+                InstructionStep("5", "Cuando creas que tu puente está listo, toca \"Probar puente\" para ver si el vehículo puede cruzar.")
+                InstructionStep("6", "Ojo con el presupuesto de arriba: si gastas más de lo que tienes, no vale aunque el puente aguante.")
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Entendido") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("¡Listo!") } }
     )
 }
 
@@ -168,33 +227,42 @@ private fun BudgetBar(cost: Double, budget: Double) {
 }
 
 @Composable
-private fun BuilderToolbar(state: com.educalab.puentelab.ui.viewmodel.BuilderUiState, viewModel: BuilderViewModel, onTest: () -> Unit) {
+private fun BuilderToolbar(
+    state: com.educalab.puentelab.ui.viewmodel.BuilderUiState,
+    viewModel: BuilderViewModel,
+    feedback: GameFeedback,
+    onTest: () -> Unit
+) {
     Column(Modifier.background(White).padding(vertical = 8.dp)) {
         LazyRow(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.materials) { material ->
                 val selected = material.id == state.selectedMaterialId
+                val unlocked = material.unlockLevel <= state.playerLevel
                 AssistChip(
-                    onClick = { viewModel.selectMaterial(material.id) },
-                    label = { Text(material.name) },
+                    onClick = { feedback.tap(); viewModel.selectMaterial(material.id) },
+                    enabled = unlocked,
+                    label = { Text(if (unlocked) material.name else "${material.name} 🔒 Nv.${material.unlockLevel}") },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = if (selected) SiteOrange else Blueprint100,
-                        labelColor = if (selected) White else Ink900
+                        labelColor = if (selected) White else Ink900,
+                        disabledContainerColor = Blueprint100.copy(alpha = 0.4f),
+                        disabledLabelColor = Ink600.copy(alpha = 0.6f)
                     )
                 )
             }
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            RoleButton("Calzada", state.selectedRole == MemberRole.DECK) { viewModel.selectRole(MemberRole.DECK) }
-            RoleButton("Riostra", state.selectedRole == MemberRole.BRACE) { viewModel.selectRole(MemberRole.BRACE) }
-            RoleButton("Cable", state.selectedRole == MemberRole.CABLE) { viewModel.selectRole(MemberRole.CABLE) }
-            RoleButton("Torre", state.selectedRole == MemberRole.TOWER) { viewModel.selectRole(MemberRole.TOWER) }
+            RoleButton("Calzada", state.selectedRole == MemberRole.DECK) { feedback.tap(); viewModel.selectRole(MemberRole.DECK) }
+            RoleButton("Riostra", state.selectedRole == MemberRole.BRACE) { feedback.tap(); viewModel.selectRole(MemberRole.BRACE) }
+            RoleButton("Cable", state.selectedRole == MemberRole.CABLE) { feedback.tap(); viewModel.selectRole(MemberRole.CABLE) }
+            RoleButton("Torre", state.selectedRole == MemberRole.TOWER) { feedback.tap(); viewModel.selectRole(MemberRole.TOWER) }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = state.pierMode,
-                onClick = { viewModel.togglePierMode(!state.pierMode) },
+                onClick = { feedback.tap(); viewModel.togglePierMode(!state.pierMode) },
                 label = { Text("Apoyo nuevo (+$35)") }
             )
             Spacer(Modifier.weight(1f))

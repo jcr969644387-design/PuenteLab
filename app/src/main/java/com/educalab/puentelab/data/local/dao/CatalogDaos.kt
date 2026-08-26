@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.educalab.puentelab.data.local.entity.MaterialEntity
 import com.educalab.puentelab.data.local.entity.VehicleEntity
+import com.educalab.puentelab.domain.model.ScenarioType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -30,6 +31,9 @@ interface VehicleDao {
 
     @Query("SELECT * FROM vehicles WHERE id = :id")
     suspend fun getById(id: String): VehicleEntity?
+
+    @Query("SELECT * FROM vehicles WHERE themeScenario = :scenario ORDER BY unlockLevel ASC LIMIT 1")
+    suspend fun getDefaultForScenario(scenario: ScenarioType): VehicleEntity?
 
     @Query("SELECT COUNT(*) FROM vehicles")
     suspend fun count(): Int

@@ -15,5 +15,6 @@ data class MaterialSpec(
     val strength: Double,
     val costPerUnit: Double,
     val weightFactor: Double,
-    val allowedRoles: Set<MemberRole>
+    val allowedRoles: Set<MemberRole>,
+    val unlockLevel: Int = 1
 )
