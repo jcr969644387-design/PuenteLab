@@ -59,10 +59,9 @@ fun MaterialsScreen(viewModel: MaterialsViewModel) {
 
 @Composable
 private fun MaterialCard(material: MaterialEntity) {
-    val color = runCatching { Color(android.graphics.Color.parseColor(material.colorHex)) }.getOrDefault(Blueprint500)
     Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(color))
+            MaterialIcon(material, modifier = Modifier.size(48.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(material.name, style = MaterialTheme.typography.titleMedium)
@@ -123,4 +122,68 @@ private fun colorForScenario(scenario: ScenarioType): Color = when (scenario) {
     ScenarioType.FOREST -> ForestGreen
     ScenarioType.CITY -> CityViolet
     ScenarioType.MOUNTAIN -> MountainSlate
+}
+
+/**
+ * Muestra de material con una textura propia (no un cuadrado de color plano), para que se
+ * puedan reconocer a simple vista aunque dos materiales compartan un color parecido.
+ */
+@Composable
+private fun MaterialIcon(material: MaterialEntity, modifier: Modifier = Modifier) {
+    val base = runCatching { Color(android.graphics.Color.parseColor(material.colorHex)) }.getOrDefault(Blueprint500)
+    val dark = base.copy(alpha = 1f).let { Color(it.red * 0.6f, it.green * 0.6f, it.blue * 0.6f, 1f) }
+    val light = Color.White.copy(alpha = 0.55f)
+    Box(modifier.clip(RoundedCornerShape(12.dp)).background(base)) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width; val h = size.height
+            when (material.id) {
+                "wood" -> { // vetas de madera: líneas horizontales
+                    var yy = h * 0.2f
+                    while (yy < h) {
+                        drawLine(dark, Offset(0f, yy), Offset(w, yy), strokeWidth = 2f)
+                        yy += h * 0.22f
+                    }
+                }
+                "rope" -> { // trenzado: líneas diagonales cruzadas
+                    var t = -h
+                    while (t < w) {
+                        drawLine(dark, Offset(t, h), Offset(t + h, 0f), strokeWidth = 2.5f)
+                        t += w * 0.28f
+                    }
+                }
+                "stone" -> { // piedra: manchas irregulares
+                    drawCircle(dark, radius = w * 0.16f, center = Offset(w * 0.3f, h * 0.35f))
+                    drawCircle(dark, radius = w * 0.13f, center = Offset(w * 0.68f, h * 0.6f))
+                    drawCircle(dark, radius = w * 0.1f, center = Offset(w * 0.32f, h * 0.75f))
+                }
+                "steel" -> { // viga en "I"
+                    drawLine(dark, Offset(w * 0.22f, h * 0.18f), Offset(w * 0.78f, h * 0.18f), strokeWidth = 5f)
+                    drawLine(dark, Offset(w * 0.5f, h * 0.18f), Offset(w * 0.5f, h * 0.82f), strokeWidth = 5f)
+                    drawLine(dark, Offset(w * 0.22f, h * 0.82f), Offset(w * 0.78f, h * 0.82f), strokeWidth = 5f)
+                }
+                "steel_cable" -> { // cable: hebras diagonales finas
+                    var t = 0f
+                    while (t < w + h) {
+                        drawLine(light, Offset(t, 0f), Offset(t - h, h), strokeWidth = 1.5f)
+                        t += w * 0.2f
+                    }
+                }
+                "concrete" -> { // hormigón: salpicado de puntos
+                    val dots = listOf(0.2f to 0.25f, 0.5f to 0.4f, 0.75f to 0.2f, 0.3f to 0.7f, 0.65f to 0.75f, 0.85f to 0.55f)
+                    dots.forEach { (dx, dy) -> drawCircle(dark, radius = w * 0.045f, center = Offset(w * dx, h * dy)) }
+                }
+                "aluminum" -> { // brillo metálico: franja diagonal clara
+                    drawLine(light, Offset(w * 0.1f, h * 0.85f), Offset(w * 0.9f, h * 0.15f), strokeWidth = w * 0.16f)
+                }
+                "carbon_fiber" -> { // fibra de carbono: trama cruzada
+                    var t = 0f
+                    while (t < w + h) {
+                        drawLine(light, Offset(t, 0f), Offset(t - h, h), strokeWidth = 1.5f)
+                        drawLine(light, Offset(t, h), Offset(t - h, 0f), strokeWidth = 1.5f)
+                        t += w * 0.22f
+                    }
+                }
+            }
+        }
+    }
 }
