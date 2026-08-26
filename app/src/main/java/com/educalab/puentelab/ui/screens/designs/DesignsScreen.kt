@@ -39,6 +39,7 @@ fun DesignsScreen(viewModel: DesignsViewModel) {
                             onDelete = { viewModel.delete(design.id) }
                         )
                     }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
             }
         }

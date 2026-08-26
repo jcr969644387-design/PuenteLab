@@ -54,6 +54,7 @@ fun ScenariosScreen(viewModel: ScenariosViewModel, onOpenChallenge: (String) -> 
                     }
                 }
             }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
