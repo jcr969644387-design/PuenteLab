@@ -4,10 +4,13 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -25,7 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.data.local.entity.VehicleEntity
 import com.educalab.puentelab.domain.model.BridgeChallengeSpec
+import com.educalab.puentelab.domain.model.MaterialSpec
 import com.educalab.puentelab.domain.model.MemberRole
+import com.educalab.puentelab.domain.model.ScenarioEducationInfo
 import com.educalab.puentelab.domain.model.StructureType
 import com.educalab.puentelab.ui.components.BuilderCanvasView
 import com.educalab.puentelab.ui.components.ScenarioScene
@@ -91,8 +96,9 @@ fun BuilderScreen(
             return@Scaffold
         }
 
+        val materialsById = state.materials.associateBy { it.id }
         Column(Modifier.fillMaxSize().padding(padding)) {
-            MissionBanner(challenge, vehicle = state.testVehicle)
+            MissionBanner(challenge, vehicle = state.testVehicle, scenarioInfo = state.scenarioInfo, materialsById = materialsById)
             BudgetBar(cost = state.liveCost, budget = challenge.budget)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -100,7 +106,7 @@ fun BuilderScreen(
                 Box(Modifier.fillMaxSize().background(White.copy(alpha = 0.35f)))
                 BuilderCanvasView(
                     design = state.design,
-                    materialsById = state.materials.associateBy { it.id },
+                    materialsById = materialsById,
                     pendingNodeId = state.pendingNodeId,
                     spanUnits = challenge.spanUnits,
                     onTapNode = { feedback.tap(); viewModel.tapNode(it) },
@@ -164,19 +170,54 @@ private class GameFeedback(context: Context, private val haptic: HapticFeedback)
 
 /** Objetivo del desafío, siempre visible arriba del lienzo para no perder de vista la misión. */
 @Composable
-private fun MissionBanner(challenge: BridgeChallengeSpec, vehicle: VehicleEntity?, modifier: Modifier = Modifier) {
+private fun MissionBanner(
+    challenge: BridgeChallengeSpec,
+    vehicle: VehicleEntity?,
+    scenarioInfo: ScenarioEducationInfo?,
+    materialsById: Map<String, MaterialSpec>,
+    modifier: Modifier = Modifier
+) {
+    var showHint by remember { mutableStateOf(false) }
     Column(
         modifier
             .fillMaxWidth()
             .background(Blueprint700)
             .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Text("MISIÓN", style = MaterialTheme.typography.labelMedium, color = SiteAmber)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("MISIÓN", style = MaterialTheme.typography.labelMedium, color = SiteAmber)
+            if (scenarioInfo != null) {
+                Spacer(Modifier.width(6.dp))
+                Text("· ${scenarioInfo.difficultyLabel}", style = MaterialTheme.typography.labelMedium, color = Blueprint100)
+            }
+        }
         Spacer(Modifier.height(2.dp))
         Text(challenge.narrativeIntro, style = MaterialTheme.typography.bodyMedium, color = White)
         if (vehicle != null) {
             Spacer(Modifier.height(4.dp))
             Text("Lo va a probar: ${vehicle.name}", style = MaterialTheme.typography.labelMedium, color = Blueprint100)
+        }
+        if (scenarioInfo != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (showHint) "💡 Ocultar pista" else "💡 Ver pista de materiales",
+                modifier = Modifier.clickable { showHint = !showHint },
+                style = MaterialTheme.typography.labelMedium, color = SiteAmber
+            )
+            if (showHint) {
+                Spacer(Modifier.height(6.dp))
+                Text(scenarioInfo.educationalGoal, style = MaterialTheme.typography.bodySmall, color = Blueprint100)
+                Spacer(Modifier.height(6.dp))
+                MemberRole.values().forEach { role ->
+                    val matName = scenarioInfo.recommendedMaterialByRole[role]?.let { materialsById[it]?.name } ?: return@forEach
+                    Text("${role.emoji} ${role.displayName}: $matName", style = MaterialTheme.typography.bodySmall, color = White)
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Es solo una pista: puedes probar otros materiales. Si no aguanta, el juego te lo dice y puedes intentar de nuevo.",
+                    style = MaterialTheme.typography.bodySmall, color = Blueprint100
+                )
+            }
         }
     }
 }
@@ -188,13 +229,25 @@ private fun InstructionsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("¿Cómo se juega?") },
         text = {
-            Column {
-                InstructionStep("1", "Abajo elige QUÉ material vas a usar (por ejemplo Madera) y PARA QUÉ (Calzada, Riostra, Cable o Torre).")
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                InstructionStep("1", "Abajo elige QUÉ material vas a usar (por ejemplo Madera) y PARA QUÉ parte del puente.")
                 InstructionStep("2", "Toca un espacio vacío del dibujo para poner un punto nuevo.")
                 InstructionStep("3", "Toca dos puntos, uno y después el otro, para unirlos con una barra.")
                 InstructionStep("4", "¿Necesitas un punto extra en el suelo? Activa \"Apoyo nuevo\" (cuesta $35).")
                 InstructionStep("5", "Cuando creas que tu puente está listo, toca \"Probar puente\" para ver si el vehículo puede cruzar.")
                 InstructionStep("6", "Ojo con el presupuesto de arriba: si gastas más de lo que tienes, no vale aunque el puente aguante.")
+
+                Spacer(Modifier.height(14.dp))
+                Text("Las 4 partes del puente", style = MaterialTheme.typography.titleMedium, color = Blueprint900)
+                Spacer(Modifier.height(6.dp))
+                MemberRole.values().forEach { role -> RoleExplanation(role) }
+
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "No hay una única forma correcta: puedes probar materiales distintos a los de la pista. " +
+                        "Si no aguanta, prueba algo más resistente. ¡Aprender probando es parte del juego!",
+                    style = MaterialTheme.typography.bodySmall, color = Ink600
+                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("¡Listo!") } }
@@ -206,6 +259,17 @@ private fun InstructionStep(number: String, text: String) {
     Row(Modifier.padding(vertical = 4.dp)) {
         Text("$number.", color = SiteOrange, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(22.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = Ink900)
+    }
+}
+
+@Composable
+private fun RoleExplanation(role: MemberRole) {
+    Row(Modifier.padding(vertical = 4.dp)) {
+        Text(role.emoji, style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(28.dp))
+        Column {
+            Text(role.displayName, style = MaterialTheme.typography.labelLarge, color = Blueprint900)
+            Text(role.shortDescription, style = MaterialTheme.typography.bodySmall, color = Ink600)
+        }
     }
 }
 
@@ -233,15 +297,22 @@ private fun BuilderToolbar(
     feedback: GameFeedback,
     onTest: () -> Unit
 ) {
+    val recommendedMaterialId = state.scenarioInfo?.recommendedMaterialByRole?.get(state.selectedRole)
     Column(Modifier.background(White).padding(vertical = 8.dp)) {
         LazyRow(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.materials) { material ->
                 val selected = material.id == state.selectedMaterialId
                 val unlocked = material.unlockLevel <= state.playerLevel
+                val recommended = material.id == recommendedMaterialId
+                val label = when {
+                    !unlocked -> "${material.name} 🔒 Nv.${material.unlockLevel}"
+                    recommended -> "⭐ ${material.name}"
+                    else -> material.name
+                }
                 AssistChip(
                     onClick = { feedback.tap(); viewModel.selectMaterial(material.id) },
                     enabled = unlocked,
-                    label = { Text(if (unlocked) material.name else "${material.name} 🔒 Nv.${material.unlockLevel}") },
+                    label = { Text(label) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = if (selected) SiteOrange else Blueprint100,
                         labelColor = if (selected) White else Ink900,
@@ -253,10 +324,9 @@ private fun BuilderToolbar(
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            RoleButton("Calzada", state.selectedRole == MemberRole.DECK) { feedback.tap(); viewModel.selectRole(MemberRole.DECK) }
-            RoleButton("Riostra", state.selectedRole == MemberRole.BRACE) { feedback.tap(); viewModel.selectRole(MemberRole.BRACE) }
-            RoleButton("Cable", state.selectedRole == MemberRole.CABLE) { feedback.tap(); viewModel.selectRole(MemberRole.CABLE) }
-            RoleButton("Torre", state.selectedRole == MemberRole.TOWER) { feedback.tap(); viewModel.selectRole(MemberRole.TOWER) }
+            MemberRole.values().forEach { role ->
+                RoleButton(role, state.selectedRole == role) { feedback.tap(); viewModel.selectRole(role) }
+            }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,8 +346,8 @@ private fun BuilderToolbar(
 }
 
 @Composable
-private fun RoleButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+private fun RoleButton(role: MemberRole, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text("${role.emoji} ${role.displayName}") })
 }
 
 @Composable

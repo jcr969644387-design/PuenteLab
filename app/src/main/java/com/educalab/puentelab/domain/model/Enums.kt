@@ -22,12 +22,12 @@ enum class DemandLevel(val loadUnits: Double, val displayName: String) {
     HIGH(380.0, "Alta")
 }
 
-/** Rol funcional de una barra dentro de la estructura. */
-enum class MemberRole {
-    DECK,   // Forma parte de la calzada por la que circula el vehículo
-    BRACE,  // Diagonal/riostra de refuerzo (no transitable)
-    CABLE,  // Cable de suspensión
-    TOWER   // Torre vertical de anclaje de cables
+/** Rol funcional de una barra dentro de la estructura, con explicación simple para chicos. */
+enum class MemberRole(val emoji: String, val displayName: String, val shortDescription: String) {
+    DECK("🛣️", "Calzada", "Es el camino del puente. Por aquí pasan los vehículos y las personas."),
+    BRACE("🔺", "Riostra", "Refuerza el puente y ayuda a que no se mueva ni se deforme demasiado."),
+    CABLE("🪢", "Cable", "Ayuda a sostener el puente. Trabaja tirando de las partes que sostiene."),
+    TOWER("🗼", "Torre", "Sostiene los cables y ayuda a llevar el peso del puente hacia el suelo.")
 }
 
 enum class ScenarioType(val displayName: String) {
@@ -42,8 +42,8 @@ enum class ModuleState { LOCKED, AVAILABLE, STARTED, COMPLETED, MASTERED }
 
 enum class FailureReason(val message: String) {
     DISCONNECTED("Las dos orillas todavía no están conectadas. Añade barras hasta unirlas."),
-    NO_VALID_ROUTE("Hay conexión, pero falta una calzada continua para el vehículo. Usa barras de tipo calzada."),
-    SLOPE_TOO_STEEP("Alguna sección de la calzada es demasiado inclinada para que el vehículo circule."),
+    NO_VALID_ROUTE("Hay conexión, pero falta una Calzada 🛣️ completa para que pase el vehículo."),
+    SLOPE_TOO_STEEP("Alguna parte de la Calzada 🛣️ está muy empinada: el vehículo no puede subir por ahí."),
     OVER_BUDGET("El diseño se pasa del presupuesto disponible."),
-    OVERLOADED("Alguna barra no soporta la carga exigida y el puente colapsaría.")
+    OVERLOADED("El puente no pudo soportar la carga. Revisa los materiales o agrega refuerzos.")
 }

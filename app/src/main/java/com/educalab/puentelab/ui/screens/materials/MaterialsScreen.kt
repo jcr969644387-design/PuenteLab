@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.data.local.entity.MaterialEntity
 import com.educalab.puentelab.data.local.entity.VehicleEntity
+import com.educalab.puentelab.domain.model.MemberRole
 import com.educalab.puentelab.domain.model.ScenarioType
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.MaterialsViewModel
@@ -60,31 +61,64 @@ fun MaterialsScreen(viewModel: MaterialsViewModel) {
 
 @Composable
 private fun MaterialCard(material: MaterialEntity) {
+    val stars = starsFor(material.id)
     Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            MaterialIcon(material, modifier = Modifier.size(48.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(material.name, style = MaterialTheme.typography.titleMedium)
-                Text(material.description, style = MaterialTheme.typography.bodyMedium, color = Ink600)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatPill("Resist.", material.strength.toInt().toString(), SuccessGreen)
-                    StatPill("Costo", material.costPerUnit.toInt().toString(), SiteOrange)
-                    StatPill("Peso", material.weightFactor.toString(), MountainSlate)
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MaterialIcon(material, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(material.name, style = MaterialTheme.typography.titleMedium)
+                    Text(material.description, style = MaterialTheme.typography.bodyMedium, color = Ink600)
+                    if (material.allowedRoles.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Bueno para: " + material.allowedRoles.joinToString(" ") { "${it.emoji} ${it.displayName}" },
+                            style = MaterialTheme.typography.labelMedium, color = Blueprint500
+                        )
+                    }
                 }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth()) {
+                StarStat("💪", "Resistencia", stars.resistance, Modifier.weight(1f))
+                StarStat("⚖️", "Peso", stars.weight, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth()) {
+                StarStat("💰", "Costo", stars.cost, Modifier.weight(1f))
+                StarStat("🔄", "Flexibilidad", stars.flexibility, Modifier.weight(1f))
             }
         }
     }
 }
 
+/** Estadística simple mostrada con estrellas (1 a 5), sin números ni fórmulas. */
 @Composable
-private fun StatPill(label: String, value: String, color: Color) {
-    Row(
-        Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp)
-    ) {
-        Text("$label $value", style = MaterialTheme.typography.labelMedium, color = color)
+private fun StarStat(emoji: String, label: String, value: Int, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(emoji, style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.width(4.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Ink600)
+            Text("★".repeat(value) + "☆".repeat(5 - value), color = SiteAmber, style = MaterialTheme.typography.bodyMedium)
+        }
     }
+}
+
+private data class MaterialStars(val resistance: Int, val weight: Int, val cost: Int, val flexibility: Int)
+
+/** Valores de 1 a 5 pensados para que un chico entienda el material de un vistazo. */
+private fun starsFor(materialId: String): MaterialStars = when (materialId) {
+    "rope" -> MaterialStars(resistance = 2, weight = 1, cost = 1, flexibility = 5)
+    "wood" -> MaterialStars(resistance = 3, weight = 2, cost = 1, flexibility = 3)
+    "stone" -> MaterialStars(resistance = 5, weight = 5, cost = 2, flexibility = 1)
+    "steel" -> MaterialStars(resistance = 4, weight = 3, cost = 3, flexibility = 3)
+    "steel_cable" -> MaterialStars(resistance = 4, weight = 2, cost = 3, flexibility = 4)
+    "concrete" -> MaterialStars(resistance = 5, weight = 5, cost = 3, flexibility = 1)
+    "aluminum" -> MaterialStars(resistance = 3, weight = 2, cost = 4, flexibility = 3)
+    "carbon_fiber" -> MaterialStars(resistance = 5, weight = 1, cost = 5, flexibility = 3)
+    else -> MaterialStars(3, 3, 3, 3)
 }
 
 /** Silueta simple de vehículo (carrocería + cabina + ruedas), coloreada según su escenario. */

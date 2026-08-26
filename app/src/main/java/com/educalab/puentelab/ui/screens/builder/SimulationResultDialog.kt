@@ -38,6 +38,26 @@ fun SimulationResultDialog(
         label = "vehicle_crossing"
     )
 
+    // Tres niveles simples de resultado: verde (aguantó bien), amarillo (aguantó justo),
+    // rojo (colapsó). Así el chico ve de un vistazo qué tan bien le fue, sin números raros.
+    val tierColor = when {
+        !result.passed -> WarningRed
+        result.stars == 1 -> SiteAmber
+        else -> SuccessGreen
+    }
+    val tierTitle = when {
+        !result.passed -> "🔴 El puente no resistió"
+        result.stars == 1 -> "🟡 ¡Casi! Aguantó justo"
+        else -> "🟢 ¡Excelente! Tu puente aguantó"
+    }
+    // Para un puente que falló, las razones específicas ya se explican abajo (result.feedback);
+    // aquí solo agregamos un mensaje corto cuando SÍ aprobó, para distinguir "justo" de "sobrado".
+    val tierMessage = when {
+        result.stars == 1 -> "Algunas partes se movieron demasiado. Con materiales más resistentes te iría mejor la próxima vez."
+        result.passed -> "¡Tu puente soportó la carga sin problemas!"
+        else -> null
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -45,17 +65,21 @@ fun SimulationResultDialog(
                 Icon(
                     if (result.passed) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                     contentDescription = null,
-                    tint = if (result.passed) SuccessGreen else WarningRed
+                    tint = tierColor
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (result.passed) "¡Puente aprobado!" else "El puente no resistió")
+                Text(tierTitle)
             }
         },
         text = {
             Column {
                 CrossingAnimation(progress = progress, passed = result.passed)
                 Spacer(Modifier.height(12.dp))
+                if (tierMessage != null) {
+                    Text(tierMessage, style = MaterialTheme.typography.bodyMedium, color = tierColor)
+                }
                 if (result.passed) {
+                    Spacer(Modifier.height(8.dp))
                     StarRow(result.stars)
                     Spacer(Modifier.height(8.dp))
                     Text(narrativeSuccess, style = MaterialTheme.typography.bodyMedium)

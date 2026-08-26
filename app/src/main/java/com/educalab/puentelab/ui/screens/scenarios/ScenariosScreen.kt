@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.domain.model.ModuleState
+import com.educalab.puentelab.domain.model.ScenarioEducation
 import com.educalab.puentelab.domain.model.ScenarioType
 import com.educalab.puentelab.ui.components.ModuleStateChip
 import com.educalab.puentelab.ui.components.ScenarioScene
@@ -68,6 +69,7 @@ private fun ScenarioCard(
     onToggle: () -> Unit,
     expandedContent: @Composable () -> Unit
 ) {
+    val info = ScenarioEducation.byScenario[scenario]
     Card(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
         Column {
             Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))) {
@@ -76,7 +78,16 @@ private fun ScenarioCard(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth()
                         .background(Blueprint900.copy(alpha = 0.55f)).padding(12.dp)
                 ) {
-                    Text(scenario.displayName, style = MaterialTheme.typography.titleLarge, color = White)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(scenario.displayName, style = MaterialTheme.typography.titleLarge, color = White)
+                        if (info != null) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "· ${info.difficultyLabel}",
+                                style = MaterialTheme.typography.labelLarge, color = SiteAmber
+                            )
+                        }
+                    }
                 }
             }
             Row(
@@ -84,7 +95,12 @@ private fun ScenarioCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("$completed / $total desafíos completados", style = MaterialTheme.typography.bodyMedium, color = Ink600)
+                Column(Modifier.weight(1f)) {
+                    Text("$completed / $total desafíos completados", style = MaterialTheme.typography.bodyMedium, color = Ink600)
+                    if (info != null) {
+                        Text("🎯 ${info.educationalGoal}", style = MaterialTheme.typography.bodySmall, color = Ink600)
+                    }
+                }
                 Icon(
                     Icons.Filled.ChevronRight, contentDescription = if (isExpanded) "Ocultar niveles" else "Ver niveles",
                     tint = Ink600, modifier = Modifier.size(24.dp)

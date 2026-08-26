@@ -34,7 +34,8 @@ data class BuilderUiState(
     val transientMessage: String? = null,
     val playerLevel: Int = 1,
     val testVehicle: VehicleEntity? = null,
-    val autoShowInstructions: Boolean = false
+    val autoShowInstructions: Boolean = false,
+    val scenarioInfo: ScenarioEducationInfo? = null
 )
 
 class BuilderViewModel(
@@ -65,7 +66,8 @@ class BuilderViewModel(
                 selectedMaterialId = _uiState.value.selectedMaterialId,
                 playerLevel = ProgressEngine.levelInfo(profile.cachedXp).level,
                 testVehicle = testVehicle,
-                autoShowInstructions = !alreadySeenInstructions
+                autoShowInstructions = !alreadySeenInstructions,
+                scenarioInfo = challenge?.let { ScenarioEducation.byScenario[it.scenario] }
             )
             recomputeCost()
         }
