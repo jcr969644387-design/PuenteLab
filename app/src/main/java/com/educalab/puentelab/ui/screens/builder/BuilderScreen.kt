@@ -45,12 +45,15 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuilderScreen(
-    challengeId: String,
     viewModel: BuilderViewModel,
     onBack: () -> Unit,
-    onNextMission: (String) -> Unit
+    onNextMission: (String) -> Unit,
+    challengeId: String? = null,
+    designId: String? = null
 ) {
-    LaunchedEffect(challengeId) { viewModel.loadChallenge(challengeId) }
+    LaunchedEffect(challengeId, designId) {
+        if (designId != null) viewModel.loadSavedDesign(designId) else if (challengeId != null) viewModel.loadChallenge(challengeId)
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val challenge = state.challenge
     var showSaveDialog by remember { mutableStateOf(false) }

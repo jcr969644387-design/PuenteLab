@@ -2,13 +2,13 @@ package com.educalab.puentelab.data.repository
 
 import com.educalab.puentelab.data.local.dao.DesignDao
 import com.educalab.puentelab.data.local.entity.BridgeDesignEntity
+import com.educalab.puentelab.data.local.entity.DesignWithStructure
 import com.educalab.puentelab.data.local.entity.UserProfileEntity
 import com.educalab.puentelab.domain.model.BridgeDesignSpec
 import com.educalab.puentelab.domain.model.BridgeMember
 import com.educalab.puentelab.domain.model.BridgeNode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 /** Un espacio de diseño guardado por cada nivel del juego (9 niveles x 5 escenarios). */
@@ -23,8 +23,9 @@ class DesignRepository(
     private val dao: DesignDao,
     private val userId: String = UserProfileEntity.LOCAL_USER_ID
 ) {
-    fun observeSavedDesigns(): Flow<List<BridgeDesignSpec>> =
-        dao.observeSavedDesigns(userId).map { list -> list.map { it.toDomain() } }
+    /** Diseños guardados con su estructura completa (nodos, barras) y metadatos (fecha), para
+     * poder mostrar una miniatura real y reabrir el diseño exactamente como quedó guardado. */
+    fun observeSavedDesigns(): Flow<List<DesignWithStructure>> = dao.observeSavedDesigns(userId)
 
     suspend fun getOrCreateDraft(challengeId: String): BridgeDesignSpec {
         val existing = dao.getDraftForChallenge(challengeId, userId)
@@ -81,6 +82,13 @@ class DesignRepository(
         val uniqueName = uniqueNameFor(name, excludingDesignId = designId)
         dao.rename(designId, uniqueName, System.currentTimeMillis())
         dao.setSaved(designId, true, System.currentTimeMillis())
+        return SaveDesignResult.Success(designId)
+    }
+
+    /** Renombra un diseño ya guardado, buscando un nombre libre si [newName] ya está en uso. */
+    suspend fun rename(designId: String, newName: String): SaveDesignResult {
+        val uniqueName = uniqueNameFor(newName, excludingDesignId = designId)
+        dao.rename(designId, uniqueName, System.currentTimeMillis())
         return SaveDesignResult.Success(designId)
     }
 

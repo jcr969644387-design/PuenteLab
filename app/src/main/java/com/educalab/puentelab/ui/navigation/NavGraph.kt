@@ -105,9 +105,29 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
                 }
             )
         }
+        composable(
+            Destinations.DESIGN_BUILDER,
+            arguments = listOf(navArgument("designId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val designId = backStackEntry.arguments?.getString("designId") ?: return@composable
+            val vm: BuilderViewModel = viewModel(factory = viewModelFactory)
+            BuilderScreen(
+                designId = designId,
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+                onNextMission = { nextId ->
+                    navController.navigate(Destinations.builder(nextId)) {
+                        popUpTo(Destinations.designBuilder(designId)) { inclusive = true }
+                    }
+                }
+            )
+        }
         composable(Destinations.DESIGNS) {
             val vm: DesignsViewModel = viewModel(factory = viewModelFactory)
-            DesignsScreen(viewModel = vm)
+            DesignsScreen(
+                viewModel = vm,
+                onOpenDesign = { designId -> navController.navigate(Destinations.designBuilder(designId)) }
+            )
         }
         composable(Destinations.PROGRESS) {
             val vm: ProgressViewModel = viewModel(factory = viewModelFactory)

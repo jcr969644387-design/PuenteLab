@@ -62,27 +62,28 @@ class BuilderViewModel(
             val challenge = catalogRepository.getChallenge(challengeId)?.toDomain()
             val draft = designRepository.getOrCreateDraft(challengeId)
             val seededDesign = if (draft.nodes.isEmpty() && challenge != null) seedBanks(draft, challenge) else draft
-            val profile = profileRepository.getOrCreateProfile()
-            val testVehicle = challenge?.let { catalogRepository.getDefaultVehicleForScenario(it.scenario) }
             val alreadySeenInstructions = appPreferences.hasSeenBuilderInstructionsOnce()
-
-            _uiState.value = _uiState.value.copy(
-                loading = false,
-                challenge = challenge,
-                design = seededDesign,
-                selectedMaterialId = _uiState.value.selectedMaterialId,
-                playerLevel = ProgressEngine.levelInfo(profile.cachedXp).level,
-                testVehicle = testVehicle,
-                autoShowInstructions = !alreadySeenInstructions,
-                scenarioInfo = challenge?.let { ScenarioEducation.byScenario[it.scenario] },
-                missionConstraint = MissionConstraints.byChallengeId[challengeId],
-                vehicleCount = challenge?.let { MissionVehicles.countFor(it.orderIndex) } ?: 1,
-                soundEnabled = profile.soundEnabled,
-                hapticEnabled = profile.hapticEnabled,
-                nextChallengeId = null
-            )
-            recomputeCost()
+            applyLoadedState(challenge, seededDesign, autoShowInstructions = !alreadySeenInstructions)
         }
+        observeMaterials()
+    }
+
+    /**
+     * Abre un diseño ya guardado desde "Mis Diseños" con su estructura exacta (nodos, barras,
+     * materiales de cada pieza) tal como quedó al guardarlo, en vez de crear un borrador nuevo
+     * del desafío. El escenario y la misión se resuelven a partir de design.challengeId.
+     */
+    fun loadSavedDesign(designId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(loading = true)
+            val design = designRepository.getDesign(designId) ?: return@launch
+            val challenge = catalogRepository.getChallenge(design.challengeId)?.toDomain()
+            applyLoadedState(challenge, design, autoShowInstructions = false)
+        }
+        observeMaterials()
+    }
+
+    private fun observeMaterials() {
         viewModelScope.launch {
             catalogRepository.observeMaterials().collect { list ->
                 _uiState.value = _uiState.value.copy(materials = list.map { it.toDomain() })
@@ -91,6 +92,28 @@ class BuilderViewModel(
                 }
             }
         }
+    }
+
+    private suspend fun applyLoadedState(challenge: BridgeChallengeSpec?, design: BridgeDesignSpec, autoShowInstructions: Boolean) {
+        val profile = profileRepository.getOrCreateProfile()
+        val testVehicle = challenge?.let { catalogRepository.getDefaultVehicleForScenario(it.scenario) }
+
+        _uiState.value = _uiState.value.copy(
+            loading = false,
+            challenge = challenge,
+            design = design,
+            selectedMaterialId = _uiState.value.selectedMaterialId,
+            playerLevel = ProgressEngine.levelInfo(profile.cachedXp).level,
+            testVehicle = testVehicle,
+            autoShowInstructions = autoShowInstructions,
+            scenarioInfo = challenge?.let { ScenarioEducation.byScenario[it.scenario] },
+            missionConstraint = challenge?.let { MissionConstraints.byChallengeId[it.id] },
+            vehicleCount = challenge?.let { MissionVehicles.countFor(it.orderIndex) } ?: 1,
+            soundEnabled = profile.soundEnabled,
+            hapticEnabled = profile.hapticEnabled,
+            nextChallengeId = null
+        )
+        recomputeCost()
     }
 
     /** Marca el tutorial como visto para que no se vuelva a abrir solo en el próximo desafío. */
