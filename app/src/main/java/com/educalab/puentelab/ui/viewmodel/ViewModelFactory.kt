@@ -9,7 +9,10 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when (modelClass) {
             ProfileViewModel::class.java -> ProfileViewModel(container.profileRepository) as T
-            AcademyViewModel::class.java -> AcademyViewModel(container.catalogRepository, container.profileRepository, container.database.userBadgeDao()) as T
+            AcademyViewModel::class.java -> AcademyViewModel(
+                container.catalogRepository, container.profileRepository,
+                container.database.userBadgeDao(), container.database.progressDao()
+            ) as T
             ScenariosViewModel::class.java -> ScenariosViewModel(container.catalogRepository, container.database.progressDao()) as T
             MaterialsViewModel::class.java -> MaterialsViewModel(container.catalogRepository) as T
             BuilderViewModel::class.java -> BuilderViewModel(

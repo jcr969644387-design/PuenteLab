@@ -99,7 +99,7 @@ fun BuilderCanvasView(
             drawLine(
                 color = color,
                 start = mapper.toOffset(a), end = mapper.toOffset(b),
-                strokeWidth = if (member.role == MemberRole.DECK) 10f else 5f,
+                strokeWidth = if (member.role == MemberRole.DECK) 15f else 8f,
                 cap = StrokeCap.Round
             )
         }

@@ -24,6 +24,7 @@ import com.educalab.puentelab.ui.screens.onboarding.OnboardingScreen
 import com.educalab.puentelab.ui.screens.profile.ProfileSetupScreen
 import com.educalab.puentelab.ui.screens.progress.ProgressScreen
 import com.educalab.puentelab.ui.screens.scenarios.ScenariosScreen
+import com.educalab.puentelab.ui.screens.settings.SettingsScreen
 import com.educalab.puentelab.ui.viewmodel.*
 
 @Composable
@@ -54,6 +55,7 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
                         onOpenMaterials = { navController.navigate(Destinations.MATERIALS) },
                         onOpenDesigns = { navController.navigate(Destinations.DESIGNS) },
                         onOpenProgress = { navController.navigate(Destinations.PROGRESS) },
+                        onOpenSettings = { navController.navigate(Destinations.SETTINGS) },
                         onContinueChallenge = { id -> navController.navigate(Destinations.builder(id)) }
                     )
                 }
@@ -81,7 +83,16 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
         ) { backStackEntry ->
             val challengeId = backStackEntry.arguments?.getString("challengeId") ?: return@composable
             val vm: BuilderViewModel = viewModel(factory = viewModelFactory)
-            BuilderScreen(challengeId = challengeId, viewModel = vm, onBack = { navController.popBackStack() })
+            BuilderScreen(
+                challengeId = challengeId,
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+                onNextMission = { nextId ->
+                    navController.navigate(Destinations.builder(nextId)) {
+                        popUpTo(Destinations.builder(challengeId)) { inclusive = true }
+                    }
+                }
+            )
         }
         composable(Destinations.DESIGNS) {
             val vm: DesignsViewModel = viewModel(factory = viewModelFactory)
@@ -90,6 +101,9 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
         composable(Destinations.PROGRESS) {
             val vm: ProgressViewModel = viewModel(factory = viewModelFactory)
             ProgressScreen(viewModel = vm)
+        }
+        composable(Destinations.SETTINGS) {
+            SettingsScreen(viewModel = profileViewModel, onBack = { navController.popBackStack() })
         }
     }
 }

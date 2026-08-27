@@ -52,7 +52,12 @@ abstract class PuenteLabDatabase : RoomDatabase() {
                     context.applicationContext,
                     PuenteLabDatabase::class.java,
                     "puentelab.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // No hay migraciones definidas (app en desarrollo activo, sin datos de servidor
+                    // que proteger); si el esquema cambia entre versiones, reinicia la base local
+                    // en vez de tirar la app con un crash de Room al abrir.
+                    .fallbackToDestructiveMigration()
+                    .build().also { INSTANCE = it }
             }
     }
 }

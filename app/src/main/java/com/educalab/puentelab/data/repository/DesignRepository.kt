@@ -7,10 +7,12 @@ import com.educalab.puentelab.domain.model.BridgeDesignSpec
 import com.educalab.puentelab.domain.model.BridgeMember
 import com.educalab.puentelab.domain.model.BridgeNode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-const val MAX_SAVED_DESIGNS = 15
+/** Un espacio de diseño guardado por cada nivel del juego (9 niveles x 5 escenarios). */
+const val MAX_SAVED_DESIGNS = 45
 
 sealed class SaveDesignResult {
     data class Success(val designId: String) : SaveDesignResult()
@@ -49,6 +51,15 @@ class DesignRepository(
             design.nodes.map { it.toEntity(design.id) },
             design.members.map { it.toEntity(design.id) }
         )
+    }
+
+    /** "Mi Puente", "Mi Puente 2", "Mi Puente 3"... el primer nombre libre, sin repetir. */
+    suspend fun suggestedDesignName(): String {
+        val existingNames = dao.observeSavedDesigns(userId).first().map { it.design.name }.toSet()
+        if ("Mi Puente" !in existingNames) return "Mi Puente"
+        var n = 2
+        while ("Mi Puente $n" in existingNames) n++
+        return "Mi Puente $n"
     }
 
     suspend fun saveToMyDesigns(designId: String, name: String): SaveDesignResult {

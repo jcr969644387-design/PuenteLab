@@ -36,7 +36,13 @@ data class BuilderUiState(
     val testVehicle: VehicleEntity? = null,
     val autoShowInstructions: Boolean = false,
     val scenarioInfo: ScenarioEducationInfo? = null,
-    val missingRequiredRoles: Set<MemberRole> = emptySet()
+    val missingRequiredRoles: Set<MemberRole> = emptySet(),
+    val missionConstraint: MissionConstraint? = null,
+    val vehicleCount: Int = 1,
+    val soundEnabled: Boolean = true,
+    val hapticEnabled: Boolean = true,
+    val nextChallengeId: String? = null,
+    val nextChallengeIsNewScenario: Boolean = false
 )
 
 class BuilderViewModel(
@@ -68,7 +74,12 @@ class BuilderViewModel(
                 playerLevel = ProgressEngine.levelInfo(profile.cachedXp).level,
                 testVehicle = testVehicle,
                 autoShowInstructions = !alreadySeenInstructions,
-                scenarioInfo = challenge?.let { ScenarioEducation.byScenario[it.scenario] }
+                scenarioInfo = challenge?.let { ScenarioEducation.byScenario[it.scenario] },
+                missionConstraint = MissionConstraints.byChallengeId[challengeId],
+                vehicleCount = challenge?.let { MissionVehicles.countFor(it.orderIndex) } ?: 1,
+                soundEnabled = profile.soundEnabled,
+                hapticEnabled = profile.hapticEnabled,
+                nextChallengeId = null
             )
             recomputeCost()
         }
@@ -226,7 +237,14 @@ class BuilderViewModel(
                 vehicleId = vehicle?.id ?: "van_explorer",
                 vehicleWeightMultiplier = vehicle?.weightMultiplier ?: 1.0
             )
-            _uiState.value = _uiState.value.copy(lastResult = outcome.result, showResult = true)
+            val next = if (outcome.result.passed) {
+                catalogRepository.getNextChallenge(challenge.scenario, challenge.orderIndex)
+            } else null
+            _uiState.value = _uiState.value.copy(
+                lastResult = outcome.result, showResult = true,
+                nextChallengeId = next?.id,
+                nextChallengeIsNewScenario = next != null && next.scenario != challenge.scenario
+            )
         }
     }
 
@@ -240,4 +258,6 @@ class BuilderViewModel(
             onResult(result)
         }
     }
+
+    suspend fun suggestedDesignName(): String = designRepository.suggestedDesignName()
 }

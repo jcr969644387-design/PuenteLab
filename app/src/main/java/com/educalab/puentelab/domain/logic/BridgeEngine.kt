@@ -183,6 +183,10 @@ object BridgeEngine {
         val missingRoles = (requiredRoles - presentRoles).toList()
         if (missingRoles.isNotEmpty()) reasons += FailureReason.MISSING_ELEMENTS
 
+        // ---- 6. Restricción especial del desafío (si tiene una) ----
+        val constraintMessages = checkConstraint(challenge.id, design)
+        if (constraintMessages.isNotEmpty()) reasons += FailureReason.CONSTRAINT_VIOLATED
+
         val passed = reasons.isEmpty()
 
         val budgetMarginRatio = if (challenge.budget > 0) budgetRemaining / challenge.budget else 0.0
@@ -194,7 +198,7 @@ object BridgeEngine {
             else -> 1
         }
 
-        val feedback = buildFeedback(passed, reasons, totalCost, challenge.budget, weakestId, materials, design, missingRoles, challenge.scenario)
+        val feedback = buildFeedback(passed, reasons, totalCost, challenge.budget, weakestId, materials, design, missingRoles, challenge.scenario, constraintMessages)
 
         return SimulationResult(
             passed = passed,
@@ -274,6 +278,30 @@ object BridgeEngine {
         return interior.any { it < startY - 0.5 && it < endY - 0.5 }
     }
 
+    /** Revisa la restricción especial del desafío (si tiene una) y devuelve los avisos que aplican. */
+    private fun checkConstraint(challengeId: String, design: BridgeDesignSpec): List<String> {
+        val constraint = MissionConstraints.byChallengeId[challengeId] ?: return emptyList()
+        val msgs = mutableListOf<String>()
+        val counts = design.members.groupingBy { it.role }.eachCount()
+        if (constraint.maxMembers != null && design.members.size > constraint.maxMembers) {
+            msgs += "Te pasaste del límite de barras (máximo ${constraint.maxMembers}). Simplifica el diseño."
+        }
+        if (constraint.maxCables != null && (counts[MemberRole.CABLE] ?: 0) > constraint.maxCables) {
+            msgs += "Usaste más Cables 🪢 de los permitidos (máximo ${constraint.maxCables})."
+        }
+        if (constraint.maxBraces != null && (counts[MemberRole.BRACE] ?: 0) > constraint.maxBraces) {
+            msgs += "Usaste más Riostras 🔺 de las permitidas (máximo ${constraint.maxBraces})."
+        }
+        if (constraint.maxTowers != null && (counts[MemberRole.TOWER] ?: 0) > constraint.maxTowers) {
+            msgs += "Usaste más Torres 🗼 de las permitidas (máximo ${constraint.maxTowers})."
+        }
+        if (constraint.bannedMaterialIds.isNotEmpty()) {
+            val used = design.members.map { it.materialId }.filter { it in constraint.bannedMaterialIds }.toSet()
+            if (used.isNotEmpty()) msgs += "Este desafío no permite usar ese material aquí. Prueba con otro."
+        }
+        return msgs
+    }
+
     private fun buildFeedback(
         passed: Boolean,
         reasons: List<FailureReason>,
@@ -283,7 +311,8 @@ object BridgeEngine {
         materials: Map<String, MaterialSpec>,
         design: BridgeDesignSpec,
         missingRoles: List<MemberRole>,
-        scenario: ScenarioType
+        scenario: ScenarioType,
+        constraintMessages: List<String>
     ): List<String> {
         if (passed) {
             val used = "%.0f".format(totalCost)
@@ -310,6 +339,9 @@ object BridgeEngine {
                 }
                 FailureReason.MISSING_ELEMENTS -> {
                     missingRoles.forEach { role -> msgs += missingRoleMessage(role) }
+                }
+                FailureReason.CONSTRAINT_VIOLATED -> {
+                    constraintMessages.forEach { msgs += it }
                 }
                 else -> msgs += r.message
             }

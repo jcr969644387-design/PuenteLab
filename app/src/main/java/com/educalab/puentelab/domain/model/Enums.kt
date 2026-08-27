@@ -46,5 +46,6 @@ enum class FailureReason(val message: String) {
     SLOPE_TOO_STEEP("Alguna parte de la Calzada 🛣️ está muy empinada: el vehículo no puede subir por ahí."),
     OVER_BUDGET("El diseño se pasa del presupuesto disponible."),
     OVERLOADED("El puente no pudo soportar la carga. Revisa los materiales o agrega refuerzos."),
-    MISSING_ELEMENTS("A este puente le faltan partes importantes.")
+    MISSING_ELEMENTS("A este puente le faltan partes importantes."),
+    CONSTRAINT_VIOLATED("Este desafío tiene una restricción especial que tu diseño no respeta.")
 }

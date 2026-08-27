@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,12 +42,14 @@ fun ScenariosScreen(viewModel: ScenariosViewModel, onOpenChallenge: (String) -> 
             items(ScenarioType.values().toList()) { scenario ->
                 val list = byScenario[scenario].orEmpty().sortedBy { it.challenge.orderIndex }
                 val completed = list.count { it.state == ModuleState.COMPLETED || it.state == ModuleState.MASTERED }
+                val scenarioLocked = list.isNotEmpty() && list.all { it.state == ModuleState.LOCKED }
                 ScenarioCard(
                     scenario = scenario,
                     completed = completed,
                     total = list.size,
+                    locked = scenarioLocked,
                     isExpanded = expanded == scenario,
-                    onToggle = { expanded = if (expanded == scenario) null else scenario }
+                    onToggle = { if (!scenarioLocked) expanded = if (expanded == scenario) null else scenario }
                 ) {
                     Column {
                         list.forEach { item ->
@@ -65,6 +68,7 @@ private fun ScenarioCard(
     scenario: ScenarioType,
     completed: Int,
     total: Int,
+    locked: Boolean,
     isExpanded: Boolean,
     onToggle: () -> Unit,
     expandedContent: @Composable () -> Unit
@@ -74,6 +78,11 @@ private fun ScenarioCard(
         Column {
             Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))) {
                 ScenarioScene(scenario, modifier = Modifier.fillMaxSize())
+                if (locked) {
+                    Box(Modifier.fillMaxSize().background(Blueprint900.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Lock, contentDescription = "Escenario bloqueado", tint = White, modifier = Modifier.size(36.dp))
+                    }
+                }
                 Box(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth()
                         .background(Blueprint900.copy(alpha = 0.55f)).padding(12.dp)
@@ -91,22 +100,27 @@ private fun ScenarioCard(
                 }
             }
             Row(
-                Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(16.dp),
+                Modifier.fillMaxWidth().clickable(enabled = !locked, onClick = onToggle).padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("$completed / $total desafíos completados", style = MaterialTheme.typography.bodyMedium, color = Ink600)
-                    if (info != null) {
+                    Text(
+                        if (locked) "Completa el escenario anterior para desbloquear" else "$completed / $total desafíos completados",
+                        style = MaterialTheme.typography.bodyMedium, color = Ink600
+                    )
+                    if (info != null && !locked) {
                         Text("🎯 ${info.educationalGoal}", style = MaterialTheme.typography.bodySmall, color = Ink600)
                     }
                 }
-                Icon(
-                    Icons.Filled.ChevronRight, contentDescription = if (isExpanded) "Ocultar niveles" else "Ver niveles",
-                    tint = Ink600, modifier = Modifier.size(24.dp)
-                )
+                if (!locked) {
+                    Icon(
+                        Icons.Filled.ChevronRight, contentDescription = if (isExpanded) "Ocultar niveles" else "Ver niveles",
+                        tint = Ink600, modifier = Modifier.size(24.dp)
+                    )
+                }
             }
-            if (isExpanded) {
+            if (isExpanded && !locked) {
                 Divider()
                 expandedContent()
             }

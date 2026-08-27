@@ -9,6 +9,7 @@ object Destinations {
     const val BUILDER = "builder/{challengeId}"
     const val DESIGNS = "designs"
     const val PROGRESS = "progress"
+    const val SETTINGS = "settings"
 
     fun builder(challengeId: String) = "builder/$challengeId"
 }

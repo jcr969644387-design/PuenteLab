@@ -13,8 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.educalab.puentelab.ui.components.ExampleBridgeIllustration
 import com.educalab.puentelab.ui.components.PivotCharacter
 import com.educalab.puentelab.ui.components.PivotMood
+import com.educalab.puentelab.ui.components.SecurityIllustration
+import com.educalab.puentelab.ui.components.WorkshopIllustration
 import com.educalab.puentelab.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -40,7 +43,12 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    PivotCharacter(mood = if (page == 1) PivotMood.HAPPY else PivotMood.NEUTRAL, modifier = Modifier.size(140.dp))
+                    when (page) {
+                        0 -> WorkshopIllustration(modifier = Modifier.size(180.dp))
+                        1 -> PivotCharacter(mood = PivotMood.HAPPY, modifier = Modifier.size(140.dp))
+                        2 -> ExampleBridgeIllustration(modifier = Modifier.size(width = 220.dp, height = 150.dp))
+                        else -> SecurityIllustration(modifier = Modifier.size(160.dp))
+                    }
                     Spacer(Modifier.height(24.dp))
                     Text(pages[page].title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, color = Blueprint900)
                     Spacer(Modifier.height(12.dp))

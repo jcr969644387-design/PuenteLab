@@ -50,17 +50,23 @@ import kotlinx.coroutines.launch
 fun BuilderScreen(
     challengeId: String,
     viewModel: BuilderViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNextMission: (String) -> Unit
 ) {
     LaunchedEffect(challengeId) { viewModel.loadChallenge(challengeId) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val challenge = state.challenge
     var showSaveDialog by remember { mutableStateOf(false) }
+    var suggestedName by remember { mutableStateOf("Mi Puente") }
     var showInstructions by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
     val feedback = rememberGameFeedback()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    SideEffect {
+        feedback.soundEnabled = state.soundEnabled
+        feedback.hapticEnabled = state.hapticEnabled
+    }
 
     // Estado de la breve animación de desvanecido al borrar una sola pieza (nodo o barra).
     var fadingNodeId by remember { mutableStateOf<String?>(null) }
@@ -101,11 +107,16 @@ fun BuilderScreen(
             viewModel.markInstructionsSeen()
         }
     }
-    // Avisa con sonido y vibración distintos si el puente aprobó o no.
+    // Avisa con sonido y vibración distintos si el puente aprobó o no; si además desbloqueó
+    // un escenario nuevo, usa un sonido más festivo.
     LaunchedEffect(state.showResult) {
         val result = state.lastResult
         if (state.showResult && result != null) {
-            if (result.passed) feedback.success() else feedback.failure()
+            when {
+                result.passed && state.nextChallengeIsNewScenario -> feedback.unlock()
+                result.passed -> feedback.success()
+                else -> feedback.failure()
+            }
         }
     }
 
@@ -170,6 +181,13 @@ fun BuilderScreen(
                     )
                 }
             }
+            if (state.missionConstraint != null) {
+                Row(
+                    Modifier.fillMaxWidth().background(CityViolet.copy(alpha = 0.15f)).padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(state.missionConstraint!!.label, style = MaterialTheme.typography.labelMedium, color = CityViolet)
+                }
+            }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ScenarioScene(challenge.scenario, modifier = Modifier.fillMaxSize())
@@ -202,13 +220,20 @@ fun BuilderScreen(
             SimulationResultDialog(
                 result = state.lastResult!!,
                 narrativeSuccess = challenge.narrativeSuccess,
+                vehicleCount = state.vehicleCount,
                 onDismiss = viewModel::dismissResult,
-                onSave = { showSaveDialog = true }
+                onSave = {
+                    scope.launch { suggestedName = viewModel.suggestedDesignName() }
+                    showSaveDialog = true
+                },
+                onNextMission = state.nextChallengeId?.let { id -> { onNextMission(id) } },
+                nextMissionLabel = if (state.nextChallengeIsNewScenario) "Siguiente nivel" else "Siguiente misión"
             )
         }
 
         if (showSaveDialog) {
             SaveDesignDialog(
+                initialName = suggestedName,
                 onConfirm = { name ->
                     viewModel.saveDesign(name) { }
                     showSaveDialog = false
@@ -231,19 +256,34 @@ private class GameFeedback(context: Context, private val haptic: HapticFeedback)
     private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private val toneGenerator = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 75) }.getOrNull()
 
+    // Actualizados desde Ajustes (perfil) en cada recomposición; así estos métodos no necesitan
+    // que cada llamador revise las preferencias del jugador antes de tocar/vibrar.
+    var soundEnabled: Boolean = true
+    var hapticEnabled: Boolean = true
+
+    private fun vibrate() {
+        if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+
     fun tap() {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        runCatching { audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK) }
+        vibrate()
+        if (soundEnabled) runCatching { audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK) }
     }
 
     fun success() {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 500) }
+        vibrate()
+        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 500) }
     }
 
     fun failure() {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_NACK, 500) }
+        vibrate()
+        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_NACK, 500) }
+    }
+
+    /** Un aviso más festivo que success(): se usa al desbloquear un escenario nuevo. */
+    fun unlock() {
+        vibrate()
+        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 600) }
     }
 }
 
@@ -480,8 +520,8 @@ private fun materialEmoji(materialId: String): String = when (materialId) {
 }
 
 @Composable
-private fun SaveDesignDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("Mi puente") }
+private fun SaveDesignDialog(initialName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Guardar diseño") },

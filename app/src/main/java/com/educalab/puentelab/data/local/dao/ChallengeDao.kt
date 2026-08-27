@@ -19,6 +19,9 @@ interface ChallengeDao {
     @Query("SELECT * FROM bridge_challenges WHERE id = :id")
     suspend fun getById(id: String): BridgeChallengeEntity?
 
+    @Query("SELECT * FROM bridge_challenges WHERE scenario = :scenario AND orderIndex = :orderIndex LIMIT 1")
+    suspend fun getByScenarioAndOrder(scenario: ScenarioType, orderIndex: Int): BridgeChallengeEntity?
+
     @Query("SELECT COUNT(*) FROM bridge_challenges")
     suspend fun count(): Int
 
