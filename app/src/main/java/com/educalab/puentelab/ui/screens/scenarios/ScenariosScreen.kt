@@ -29,6 +29,7 @@ import com.educalab.puentelab.ui.viewmodel.ScenariosViewModel
  * llega aquí tocando un escenario desbloqueado en la pantalla principal, y aquí sí se listan
  * sus misiones (antes aparecían directamente en el Inicio, lo cual confundía la navegación).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScenarioMissionsScreen(scenario: ScenarioType, viewModel: ScenariosViewModel, onBack: () -> Unit, onOpenChallenge: (String) -> Unit) {
     val items by viewModel.challengeItems.collectAsStateWithLifecycle()
