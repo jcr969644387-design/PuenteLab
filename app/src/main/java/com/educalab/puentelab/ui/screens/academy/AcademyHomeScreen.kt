@@ -23,19 +23,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.data.seed.AvatarCatalog
+import com.educalab.puentelab.domain.model.ModuleState
 import com.educalab.puentelab.domain.model.ScenarioEducation
-import com.educalab.puentelab.domain.model.ScenarioType
+import com.educalab.puentelab.domain.model.ScenarioProgression
 import com.educalab.puentelab.ui.components.AvatarPortrait
+import com.educalab.puentelab.ui.components.ModuleStateChip
 import com.educalab.puentelab.ui.components.ScenarioScene
+import com.educalab.puentelab.ui.components.StarRow
 import com.educalab.puentelab.ui.components.XpProgressBar
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.AcademyViewModel
+import com.educalab.puentelab.ui.viewmodel.ChallengeUiItem
 import com.educalab.puentelab.ui.viewmodel.ScenarioSummary
 
 @Composable
 fun AcademyHomeScreen(
     viewModel: AcademyViewModel,
-    onOpenScenarios: () -> Unit,
     onOpenMaterials: () -> Unit,
     onOpenDesigns: () -> Unit,
     onOpenProgress: () -> Unit,
@@ -116,8 +119,8 @@ fun AcademyHomeScreen(
             Text("Escenarios", style = MaterialTheme.typography.titleLarge, color = Blueprint900)
             Spacer(Modifier.height(12.dp))
             state.scenarios.forEach { summary ->
-                ScenarioHomeCard(summary, onClick = { if (!summary.locked) onOpenScenarios() })
-                Spacer(Modifier.height(10.dp))
+                ScenarioHomeCard(summary, onOpenChallenge = onContinueChallenge)
+                Spacer(Modifier.height(14.dp))
             }
 
             Spacer(Modifier.height(14.dp))
@@ -160,34 +163,85 @@ private fun LevelBadgeSmall(level: Int) {
     }
 }
 
+/**
+ * Tarjeta de escenario para la pantalla principal: si está desbloqueado, muestra sus misiones
+ * directamente debajo (sin tener que volver a entrar al escenario); si está bloqueado, solo
+ * explica qué escenario anterior hay que completar.
+ */
 @Composable
-private fun ScenarioHomeCard(summary: ScenarioSummary, onClick: () -> Unit) {
+private fun ScenarioHomeCard(summary: ScenarioSummary, onOpenChallenge: (String) -> Unit) {
     val info = ScenarioEducation.byScenario[summary.scenario]
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().height(88.dp).clickable(enabled = !summary.locked, onClick = onClick)
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            ScenarioScene(summary.scenario, modifier = Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(Blueprint900.copy(alpha = if (summary.locked) 0.65f else 0.4f)))
-            Row(
-                Modifier.fillMaxSize().padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(summary.scenario.displayName, style = MaterialTheme.typography.titleMedium, color = White)
-                    Text(
-                        if (summary.locked) "Bloqueado" else "${summary.completed} / ${summary.total} · ${info?.difficultyLabel ?: ""}",
-                        style = MaterialTheme.typography.bodySmall, color = Blueprint100
+    Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Box(Modifier.fillMaxWidth().height(80.dp)) {
+                ScenarioScene(summary.scenario, modifier = Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(Blueprint900.copy(alpha = if (summary.locked) 0.65f else 0.4f)))
+                Row(
+                    Modifier.fillMaxSize().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(summary.scenario.displayName, style = MaterialTheme.typography.titleMedium, color = White)
+                        Text(
+                            if (summary.locked) "Bloqueado" else "${summary.completed} / ${summary.total} · ${info?.difficultyLabel ?: ""}",
+                            style = MaterialTheme.typography.bodySmall, color = Blueprint100
+                        )
+                    }
+                    Icon(
+                        if (summary.locked) Icons.Filled.Lock else Icons.Filled.EmojiEvents,
+                        contentDescription = null, tint = White
                     )
                 }
-                Icon(
-                    if (summary.locked) Icons.Filled.Lock else Icons.Filled.ChevronRight,
-                    contentDescription = null, tint = White
-                )
+            }
+            if (summary.locked) {
+                val previousScenario = ScenarioProgression.ORDER
+                    .getOrNull(ScenarioProgression.ORDER.indexOf(summary.scenario) - 1)
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Lock, contentDescription = null, tint = Ink600, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (previousScenario != null) "Completa ${previousScenario.displayName} para desbloquear este escenario."
+                        else "Todavía bloqueado.",
+                        style = MaterialTheme.typography.bodyMedium, color = Ink600
+                    )
+                }
+            } else {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    summary.missions.forEach { mission ->
+                        HomeMissionRow(mission, onClick = { if (mission.state != ModuleState.LOCKED) onOpenChallenge(mission.challenge.id) })
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun HomeMissionRow(item: ChallengeUiItem, onClick: () -> Unit) {
+    val locked = item.state == ModuleState.LOCKED
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !locked, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (locked) "🔒" else if (item.state == ModuleState.COMPLETED || item.state == ModuleState.MASTERED) "✅" else "🟢",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Misión ${item.challenge.orderIndex} · ${item.challenge.name}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (locked) Ink600.copy(alpha = 0.5f) else Ink900
+            )
+            ModuleStateChip(item.state)
+        }
+        if (item.bestStars > 0) StarRow(item.bestStars)
+    }
+    Divider(color = Blueprint100)
 }
 
 private data class ModuleCardData(val id: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val color: Color)

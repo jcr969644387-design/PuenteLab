@@ -1,8 +1,5 @@
 package com.educalab.puentelab.ui.screens.builder
 
-import android.content.Context
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -23,16 +20,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.educalab.puentelab.audio.GameFeedback
+import com.educalab.puentelab.audio.rememberGameFeedback
 import com.educalab.puentelab.data.local.entity.VehicleEntity
 import com.educalab.puentelab.domain.model.BridgeChallengeSpec
 import com.educalab.puentelab.domain.model.MaterialSpec
@@ -43,6 +39,7 @@ import com.educalab.puentelab.ui.components.BuilderCanvasView
 import com.educalab.puentelab.ui.components.ScenarioScene
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.BuilderViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +72,7 @@ fun BuilderScreen(
 
     fun deleteNodeWithFade(id: String) {
         if (fadingNodeId != null || fadingMemberId != null) return
-        feedback.tap()
+        feedback.deletePiece()
         fadingNodeId = id
         scope.launch {
             fadeAlpha.snapTo(1f)
@@ -88,7 +85,7 @@ fun BuilderScreen(
 
     fun deleteMemberWithFade(id: String) {
         if (fadingNodeId != null || fadingMemberId != null) return
-        feedback.tap()
+        feedback.deletePiece()
         fadingMemberId = id
         scope.launch {
             fadeAlpha.snapTo(1f)
@@ -107,15 +104,41 @@ fun BuilderScreen(
             viewModel.markInstructionsSeen()
         }
     }
-    // Avisa con sonido y vibración distintos si el puente aprobó o no; si además desbloqueó
-    // un escenario nuevo, usa un sonido más festivo.
+
+    // "Construir correctamente": suena una sola vez, justo cuando las partes obligatorias del
+    // escenario pasan de faltar a estar completas (no en la primera carga del desafío).
+    var wasMissingRequired by remember(challengeId) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(state.missingRequiredRoles) {
+        val nowComplete = state.missingRequiredRoles.isEmpty()
+        if (wasMissingRequired == true && nowComplete) feedback.buildCorrect()
+        wasMissingRequired = !nowComplete
+    }
+
+    // Sonido y vibración distintos si el puente aprobó o no. Si aprobó: fanfarria de escenario
+    // nuevo (la más festiva), o de misión completa; si además queda una misión siguiente en el
+    // mismo escenario, se agrega un aviso de "misión desbloqueada"; y por cada estrella ganada
+    // se suma un "ding" en cadena.
     LaunchedEffect(state.showResult) {
         val result = state.lastResult
         if (state.showResult && result != null) {
-            when {
-                result.passed && state.nextChallengeIsNewScenario -> feedback.unlock()
-                result.passed -> feedback.success()
-                else -> feedback.failure()
+            if (result.passed) {
+                feedback.bridgeSuccess()
+                delay(140)
+                if (state.nextChallengeIsNewScenario) {
+                    feedback.scenarioUnlock()
+                } else {
+                    feedback.missionComplete()
+                    if (state.nextChallengeId != null) {
+                        delay(180)
+                        feedback.missionUnlock()
+                    }
+                }
+                repeat(result.stars.coerceIn(0, 3)) { i ->
+                    delay(if (i == 0) 220 else 160)
+                    feedback.starEarned()
+                }
+            } else {
+                feedback.bridgeFail()
             }
         }
     }
@@ -147,7 +170,7 @@ fun BuilderScreen(
                 state = state,
                 viewModel = viewModel,
                 feedback = feedback,
-                onTest = { feedback.tap(); viewModel.runSimulation() }
+                onTest = { feedback.testStart(); viewModel.runSimulation() }
             )
         }
     ) { padding ->
@@ -201,8 +224,13 @@ fun BuilderScreen(
                     fadingNodeId = fadingNodeId,
                     fadingMemberId = fadingMemberId,
                     fadingAlpha = fadeAlpha.value,
-                    onTapNode = { feedback.tap(); viewModel.tapNode(it) },
-                    onTapEmpty = { feedback.tap(); viewModel.placeFreeNode(it) },
+                    onTapNode = { nodeId ->
+                        val before = viewModel.uiState.value.design.members.size
+                        viewModel.tapNode(nodeId)
+                        val after = viewModel.uiState.value.design.members.size
+                        if (after > before) feedback.connectNode() else feedback.tap()
+                    },
+                    onTapEmpty = { point -> feedback.placePiece(); viewModel.placeFreeNode(point) },
                     onDeleteNode = ::deleteNodeWithFade,
                     onDeleteMember = ::deleteMemberWithFade,
                     onDeleteBlocked = {
@@ -241,49 +269,6 @@ fun BuilderScreen(
                 onDismiss = { showSaveDialog = false }
             )
         }
-    }
-}
-
-/** Sonido y vibración cortos para que tocar el lienzo y probar el puente se sientan "vivos". */
-@Composable
-private fun rememberGameFeedback(): GameFeedback {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    return remember { GameFeedback(context, haptic) }
-}
-
-private class GameFeedback(context: Context, private val haptic: HapticFeedback) {
-    private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-    private val toneGenerator = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 75) }.getOrNull()
-
-    // Actualizados desde Ajustes (perfil) en cada recomposición; así estos métodos no necesitan
-    // que cada llamador revise las preferencias del jugador antes de tocar/vibrar.
-    var soundEnabled: Boolean = true
-    var hapticEnabled: Boolean = true
-
-    private fun vibrate() {
-        if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-    }
-
-    fun tap() {
-        vibrate()
-        if (soundEnabled) runCatching { audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK) }
-    }
-
-    fun success() {
-        vibrate()
-        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 500) }
-    }
-
-    fun failure() {
-        vibrate()
-        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_NACK, 500) }
-    }
-
-    /** Un aviso más festivo que success(): se usa al desbloquear un escenario nuevo. */
-    fun unlock() {
-        vibrate()
-        if (soundEnabled) runCatching { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 600) }
     }
 }
 

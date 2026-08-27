@@ -15,6 +15,7 @@ import com.educalab.puentelab.ui.components.BadgeCard
 import com.educalab.puentelab.ui.components.LevelBadgeCircle
 import com.educalab.puentelab.ui.components.StampCard
 import com.educalab.puentelab.ui.components.XpProgressBar
+import com.educalab.puentelab.ui.components.stampTierFor
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.ProgressViewModel
 
@@ -49,7 +50,7 @@ fun ProgressScreen(viewModel: ProgressViewModel) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(badges) { badge ->
                     BadgeCard(
-                        name = badge.name, description = badge.description,
+                        badgeId = badge.id, name = badge.name, description = badge.description,
                         unlocked = badge.id in state.unlockedBadgeIds
                     )
                 }
@@ -60,9 +61,11 @@ fun ProgressScreen(viewModel: ProgressViewModel) {
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(stamps) { stamp ->
+                    val tier = stampTierFor(stamp.id)
                     StampCard(
                         name = stamp.name, unlocked = stamp.id in state.unlockedStampIds,
-                        accentColor = SiteAmber
+                        scenario = if (tier == com.educalab.puentelab.ui.components.StampTier.SPECIAL) null else stamp.scenario,
+                        tier = tier
                     )
                 }
             }

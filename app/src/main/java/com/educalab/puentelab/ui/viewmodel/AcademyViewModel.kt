@@ -19,7 +19,8 @@ data class ScenarioSummary(
     val scenario: ScenarioType,
     val locked: Boolean,
     val completed: Int,
-    val total: Int
+    val total: Int,
+    val missions: List<ChallengeUiItem> = emptyList()
 )
 
 data class AcademyUiState(
@@ -51,11 +52,13 @@ class AcademyViewModel(
         val byScenario = items.groupBy { it.challenge.scenario }
 
         val scenarios = byScenario.map { (scenario, list) ->
+            val sortedList = list.sortedBy { it.challenge.orderIndex }
             ScenarioSummary(
                 scenario = scenario,
                 locked = list.isNotEmpty() && list.all { it.state == ModuleState.LOCKED },
                 completed = list.count { it.state == ModuleState.COMPLETED || it.state == ModuleState.MASTERED },
-                total = list.size
+                total = list.size,
+                missions = sortedList.map { ChallengeUiItem(it.challenge, it.state, it.bestStars) }
             )
         }.sortedBy { com.educalab.puentelab.domain.model.ScenarioProgression.ORDER.indexOf(it.scenario) }
 

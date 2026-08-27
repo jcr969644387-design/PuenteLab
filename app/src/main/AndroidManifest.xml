@@ -7,6 +7,7 @@
         ubicación, teléfono). No se usan cámara ni micrófono porque
         el proyecto no los requiere.
     -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"

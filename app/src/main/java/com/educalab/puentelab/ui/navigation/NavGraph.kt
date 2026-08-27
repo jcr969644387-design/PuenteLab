@@ -51,7 +51,6 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
                     val vm: AcademyViewModel = viewModel(factory = viewModelFactory)
                     AcademyHomeScreen(
                         viewModel = vm,
-                        onOpenScenarios = { navController.navigate(Destinations.SCENARIOS) },
                         onOpenMaterials = { navController.navigate(Destinations.MATERIALS) },
                         onOpenDesigns = { navController.navigate(Destinations.DESIGNS) },
                         onOpenProgress = { navController.navigate(Destinations.PROGRESS) },

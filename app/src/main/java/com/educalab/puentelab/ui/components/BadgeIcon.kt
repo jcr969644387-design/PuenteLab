@@ -5,25 +5,48 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.educalab.puentelab.domain.model.BadgeId
 import com.educalab.puentelab.ui.theme.*
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Insignia ilustrada. Cada BadgeId tiene una silueta propia dibujada con Canvas. */
+/** Nivel de dificultad de una insignia: define el metal de la medalla (borde y cinta). */
+enum class BadgeTier(val label: String, val emoji: String, val metal: Color, val metalDark: Color) {
+    BRONZE("Bronce", "🥉", Color(0xFFCD7F32), Color(0xFF8C5426)),
+    SILVER("Plata", "🥈", Color(0xFFC7CDD6), Color(0xFF8A919C)),
+    GOLD("Oro", "🥇", Color(0xFFF3C24A), Color(0xFFC9941E))
+}
+
+fun tierFor(id: BadgeId): BadgeTier = when (id) {
+    BadgeId.PRIMER_PUENTE, BadgeId.EXPLORADOR -> BadgeTier.BRONZE
+    BadgeId.MAESTRO_ARCO, BadgeId.INGENIERO_CERCHA, BadgeId.MAESTRO_SUSPENSION -> BadgeTier.SILVER
+    BadgeId.PRESUPUESTO_DE_ORO, BadgeId.SIN_FALLOS, BadgeId.COLECCIONISTA, BadgeId.VETERANO -> BadgeTier.GOLD
+}
+
+/**
+ * Insignia ilustrada con forma de medalla real: cinta colgante, borde metálico según el nivel
+ * de dificultad (bronce/plata/oro) y una silueta propia por cada BadgeId dibujada con Canvas.
+ */
 @Composable
 fun BadgeIcon(badgeId: BadgeId, modifier: Modifier = Modifier.size(56.dp), locked: Boolean = false) {
+    val tier = tierFor(badgeId)
     Canvas(modifier = modifier) {
         val base = if (locked) Ink600.copy(alpha = 0.35f) else colorFor(badgeId)
-        drawMedallion(base, locked)
+        val metal = if (locked) Ink600.copy(alpha = 0.4f) else tier.metal
+        val metalDark = if (locked) Ink600.copy(alpha = 0.55f) else tier.metalDark
+        drawRibbon(metal, metalDark)
+        drawMedallion(base, metal, metalDark, locked)
         if (!locked) drawGlyphFor(badgeId)
     }
 }
 
-private fun colorFor(id: BadgeId): androidx.compose.ui.graphics.Color = when (id) {
+private fun colorFor(id: BadgeId): Color = when (id) {
     BadgeId.PRIMER_PUENTE -> SiteOrange
     BadgeId.EXPLORADOR -> RiverTeal
     BadgeId.MAESTRO_ARCO -> CanyonTerracotta
@@ -35,16 +58,54 @@ private fun colorFor(id: BadgeId): androidx.compose.ui.graphics.Color = when (id
     BadgeId.VETERANO -> Blueprint900
 }
 
-private fun DrawScope.drawMedallion(color: androidx.compose.ui.graphics.Color, locked: Boolean) {
+/** Dos pequeñas tiras de cinta bajo el medallón, para que se vea colgado como un reconocimiento. */
+private fun DrawScope.drawRibbon(metal: Color, metalDark: Color) {
     val r = size.minDimension / 2f
-    val center = Offset(size.width / 2f, size.height / 2f)
-    drawCircle(color, radius = r, center = center)
-    drawCircle(if (locked) Ink600.copy(alpha = 0.5f) else White.copy(alpha = 0.85f), radius = r * 0.78f, center = center, style = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.08f))
+    val cx = size.width / 2f
+    val topY = size.height * 0.52f
+    val bottomY = size.height * 0.98f
+    val leftRibbon = Path().apply {
+        moveTo(cx - r * 0.32f, topY)
+        lineTo(cx - r * 0.08f, topY)
+        lineTo(cx - r * 0.02f, bottomY)
+        lineTo(cx - r * 0.42f, bottomY * 0.92f)
+        close()
+    }
+    val rightRibbon = Path().apply {
+        moveTo(cx + r * 0.32f, topY)
+        lineTo(cx + r * 0.08f, topY)
+        lineTo(cx + r * 0.02f, bottomY)
+        lineTo(cx + r * 0.42f, bottomY * 0.92f)
+        close()
+    }
+    drawPath(leftRibbon, metalDark)
+    drawPath(rightRibbon, metal)
+}
+
+/** Disco central con doble borde metálico y pequeñas marcas alrededor, como una moneda acuñada. */
+private fun DrawScope.drawMedallion(color: Color, metal: Color, metalDark: Color, locked: Boolean) {
+    val r = size.minDimension * 0.42f
+    val center = Offset(size.width / 2f, size.height * 0.42f)
+    drawCircle(metalDark, radius = r * 1.14f, center = center)
+    drawCircle(metal, radius = r * 1.02f, center = center)
+    drawCircle(color, radius = r * 0.86f, center = center)
+    drawCircle(
+        if (locked) Ink600.copy(alpha = 0.5f) else White.copy(alpha = 0.85f),
+        radius = r * 0.7f, center = center, style = Stroke(width = r * 0.09f)
+    )
+    // pequeñas marcas alrededor del borde, como una moneda acuñada
+    val notches = 16
+    for (i in 0 until notches) {
+        val angle = (2 * Math.PI / notches * i).toFloat()
+        val nx = center.x + (r * 1.08f) * cos(angle)
+        val ny = center.y + (r * 1.08f) * sin(angle)
+        drawCircle(metalDark.copy(alpha = 0.6f), radius = r * 0.045f, center = Offset(nx, ny))
+    }
 }
 
 private fun DrawScope.drawGlyphFor(id: BadgeId) {
-    val center = Offset(size.width / 2f, size.height / 2f)
-    val r = size.minDimension / 2f
+    val center = Offset(size.width / 2f, size.height * 0.42f)
+    val r = size.minDimension * 0.42f * 0.86f
     val glyphColor = White
     when (id) {
         BadgeId.PRIMER_PUENTE -> {

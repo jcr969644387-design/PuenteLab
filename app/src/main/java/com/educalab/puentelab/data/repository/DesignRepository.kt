@@ -54,12 +54,23 @@ class DesignRepository(
     }
 
     /** "Mi Puente", "Mi Puente 2", "Mi Puente 3"... el primer nombre libre, sin repetir. */
-    suspend fun suggestedDesignName(): String {
-        val existingNames = dao.observeSavedDesigns(userId).first().map { it.design.name }.toSet()
-        if ("Mi Puente" !in existingNames) return "Mi Puente"
+    suspend fun suggestedDesignName(): String = uniqueNameFor("Mi Puente", excludingDesignId = null)
+
+    /**
+     * Busca el primer nombre libre a partir de [requestedName]: si ya existe entre los diseños
+     * guardados (sin contar [excludingDesignId], el propio diseño que se está renombrando), le
+     * agrega " 2", " 3", etc. hasta encontrar uno que no choque. Así nunca se sobrescribe un
+     * diseño guardado por reusar el mismo nombre.
+     */
+    private suspend fun uniqueNameFor(requestedName: String, excludingDesignId: String?): String {
+        val existingNames = dao.observeSavedDesigns(userId).first()
+            .filter { it.design.id != excludingDesignId }
+            .map { it.design.name }
+            .toSet()
+        if (requestedName !in existingNames) return requestedName
         var n = 2
-        while ("Mi Puente $n" in existingNames) n++
-        return "Mi Puente $n"
+        while ("$requestedName $n" in existingNames) n++
+        return "$requestedName $n"
     }
 
     suspend fun saveToMyDesigns(designId: String, name: String): SaveDesignResult {
@@ -67,7 +78,8 @@ class DesignRepository(
         val design = dao.getDesign(designId)
         val alreadySaved = design?.isSaved == true
         if (!alreadySaved && currentCount >= MAX_SAVED_DESIGNS) return SaveDesignResult.LimitReached
-        dao.rename(designId, name, System.currentTimeMillis())
+        val uniqueName = uniqueNameFor(name, excludingDesignId = designId)
+        dao.rename(designId, uniqueName, System.currentTimeMillis())
         dao.setSaved(designId, true, System.currentTimeMillis())
         return SaveDesignResult.Success(designId)
     }
@@ -75,6 +87,7 @@ class DesignRepository(
     suspend fun duplicate(designId: String, newName: String): SaveDesignResult {
         val source = dao.getDesignWithStructure(designId) ?: return SaveDesignResult.LimitReached
         if (dao.countSavedDesigns(userId) >= MAX_SAVED_DESIGNS) return SaveDesignResult.LimitReached
+        val uniqueName = uniqueNameFor(newName, excludingDesignId = null)
         val newId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         val idMap = source.nodes.associate { it.id to UUID.randomUUID().toString() }
@@ -86,7 +99,7 @@ class DesignRepository(
             )
         }
         dao.replaceStructure(
-            BridgeDesignEntity(newId, source.design.challengeId, userId, newName, now, now, isSaved = true, duplicatedFromId = designId),
+            BridgeDesignEntity(newId, source.design.challengeId, userId, uniqueName, now, now, isSaved = true, duplicatedFromId = designId),
             newNodes, newMembers
         )
         return SaveDesignResult.Success(newId)
