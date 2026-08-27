@@ -26,6 +26,11 @@ object BridgeEngine {
     private const val ARCH_BONUS = 0.6
     private const val SUSPENSION_CABLE_RELIEF = 0.8
 
+    // La Torre sostiene directamente el tramo de calzada que toca, y ancla mejor los cables
+    // que llegan a ella (además del alivio que ya da SUSPENSION_CABLE_RELIEF).
+    private const val TOWER_DECK_SUPPORT_BONUS = 0.35
+    private const val TOWER_CABLE_ANCHOR_BONUS = 0.3
+
     private const val USER_PIER_COST = 35.0
 
     fun simulate(
@@ -109,6 +114,11 @@ object BridgeEngine {
             .flatMap { listOf(it.nodeAId, it.nodeBId) }
             .toSet()
 
+        val towerTouchingNode: Set<String> = design.members
+            .filter { it.role == MemberRole.TOWER }
+            .flatMap { listOf(it.nodeAId, it.nodeBId) }
+            .toSet()
+
         val archApplies = routeFound && pathFormsArch(routePath, nodesById)
 
         val baseLoadPerDeckMember = if (routeMemberIds.isNotEmpty()) {
@@ -133,6 +143,14 @@ object BridgeEngine {
                 if (archApplies) bonus += ARCH_BONUS
                 val touchesCable = cableTouchingNode.contains(m.nodeAId) || cableTouchingNode.contains(m.nodeBId)
                 if (touchesCable) bonus += SUSPENSION_CABLE_RELIEF
+                // la torre sostiene directamente el tramo de calzada que llega a su base
+                val touchesTower = towerTouchingNode.contains(m.nodeAId) || towerTouchingNode.contains(m.nodeBId)
+                if (touchesTower) bonus += TOWER_DECK_SUPPORT_BONUS
+            }
+            if (m.role == MemberRole.CABLE) {
+                // un cable bien anclado a una torre aguanta más tensión
+                val anchoredToTower = towerTouchingNode.contains(m.nodeAId) || towerTouchingNode.contains(m.nodeBId)
+                if (anchoredToTower) bonus += TOWER_CABLE_ANCHOR_BONUS
             }
 
             val lengthFactor = 1.0 + max(0.0, length - SAFE_UNSUPPORTED_SPAN) * LENGTH_PENALTY_PER_UNIT
@@ -159,6 +177,12 @@ object BridgeEngine {
 
         if (routeFound && maxStress > 1.0) reasons += FailureReason.OVERLOADED
 
+        // ---- 5. Elementos obligatorios del escenario (una Calzada sola nunca alcanza) ----
+        val requiredRoles = ScenarioRequirements.requiredRoles[challenge.scenario].orEmpty()
+        val presentRoles = design.members.map { it.role }.toSet()
+        val missingRoles = (requiredRoles - presentRoles).toList()
+        if (missingRoles.isNotEmpty()) reasons += FailureReason.MISSING_ELEMENTS
+
         val passed = reasons.isEmpty()
 
         val budgetMarginRatio = if (challenge.budget > 0) budgetRemaining / challenge.budget else 0.0
@@ -170,7 +194,7 @@ object BridgeEngine {
             else -> 1
         }
 
-        val feedback = buildFeedback(passed, reasons, totalCost, challenge.budget, weakestId, materials, design)
+        val feedback = buildFeedback(passed, reasons, totalCost, challenge.budget, weakestId, materials, design, missingRoles, challenge.scenario)
 
         return SimulationResult(
             passed = passed,
@@ -257,12 +281,20 @@ object BridgeEngine {
         budget: Double,
         weakestId: String?,
         materials: Map<String, MaterialSpec>,
-        design: BridgeDesignSpec
+        design: BridgeDesignSpec,
+        missingRoles: List<MemberRole>,
+        scenario: ScenarioType
     ): List<String> {
         if (passed) {
             val used = "%.0f".format(totalCost)
             val total = "%.0f".format(budget)
-            return listOf("¡El vehículo cruzó sin problemas! Usaste $${used} de $${total} de presupuesto.")
+            val msgs = mutableListOf("¡El vehículo cruzó sin problemas! Usaste $${used} de $${total} de presupuesto.")
+            val seenCombos = mutableSetOf<String>()
+            for (m in design.members) {
+                val combo = comboBonusMessage(scenario, m.role, m.materialId) ?: continue
+                if (seenCombos.add(combo)) msgs += combo
+            }
+            return msgs
         }
         val msgs = mutableListOf<String>()
         for (r in reasons.distinct()) {
@@ -274,15 +306,50 @@ object BridgeEngine {
                 FailureReason.OVERLOADED -> {
                     val weakMember = design.members.firstOrNull { it.id == weakestId }
                     val matName = weakMember?.let { materials[it.materialId]?.name }
-                    if (matName != null) {
-                        msgs += "${r.message} La barra más débil usa $matName: prueba un material más resistente o añade una riostra de refuerzo."
-                    } else {
-                        msgs += r.message
-                    }
+                    msgs += overloadedMessage(weakMember?.role, matName)
+                }
+                FailureReason.MISSING_ELEMENTS -> {
+                    missingRoles.forEach { role -> msgs += missingRoleMessage(role) }
                 }
                 else -> msgs += r.message
             }
         }
         return msgs
+    }
+
+    /** Explica qué parte falta y por qué, en vez de solo decir "faltan cosas". */
+    private fun missingRoleMessage(role: MemberRole): String = when (role) {
+        MemberRole.TOWER -> "Falta una Torre 🗼: sin ella, nada sostiene bien la estructura."
+        MemberRole.CABLE -> "Falta un Cable 🪢: necesitas uno para dar tensión al puente."
+        MemberRole.BRACE -> "Falta una Riostra 🔺: agrégala para que el puente no se deforme."
+        MemberRole.DECK -> "Falta la Calzada 🛣️: sin ella no hay por dónde cruzar."
+    }
+
+    /** Explica cuál pieza colapsó y por qué, según su función en el puente. */
+    private fun overloadedMessage(role: MemberRole?, matName: String?): String {
+        val mat = matName ?: "material"
+        return when (role) {
+            MemberRole.CABLE -> "El $mat no soportó tanta tensión. Prueba un cable más resistente."
+            MemberRole.TOWER -> "La torre de $mat no pudo sostener tanto peso. Prueba una torre más resistente."
+            MemberRole.BRACE -> "La riostra de $mat no evitó que el puente se deformara de más. Prueba una riostra más resistente."
+            else -> "La calzada de $mat no aguantó el peso del vehículo. Prueba un material más resistente o añade una riostra de refuerzo."
+        }
+    }
+
+    /** Mensaje de aliento cuando el jugador usó, para un rol, el material que mejor le queda al escenario. */
+    private fun comboBonusMessage(scenario: ScenarioType, role: MemberRole, materialId: String): String? {
+        val info = ScenarioEducation.byScenario[scenario] ?: return null
+        if (info.recommendedMaterialByRole[role] != materialId) return null
+        return when {
+            scenario == ScenarioType.RIVER && role == MemberRole.CABLE ->
+                "💡 Buena elección: el Cable de Acero le da mucha estabilidad a un puente de río."
+            scenario == ScenarioType.RIVER && role == MemberRole.TOWER ->
+                "💡 Buena elección: el Hormigón hace que las torres del río sean muy resistentes."
+            scenario == ScenarioType.CITY && role == MemberRole.CABLE ->
+                "💡 Buena elección: la Fibra de Carbono aligera tu puente sin perder resistencia."
+            scenario == ScenarioType.FOREST ->
+                "💡 Buena elección: usar Madera en el Bosque Profundo ahorra recursos."
+            else -> null
+        }
     }
 }

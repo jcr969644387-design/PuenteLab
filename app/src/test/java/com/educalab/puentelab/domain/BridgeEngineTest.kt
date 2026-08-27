@@ -30,8 +30,10 @@ class BridgeEngineTest {
     private fun member(id: String, a: String, b: String, matId: String, role: MemberRole = MemberRole.DECK) =
         BridgeMember(id, a, b, matId, role, StructureType.BEAM)
 
-    private fun challenge(budget: Double = 500.0, demand: DemandLevel = DemandLevel.LOW, maxSlope: Double = 0.6) = BridgeChallengeSpec(
-        id = "c1", scenario = ScenarioType.RIVER, orderIndex = 1, name = "Test",
+    // FOREST es el escenario con menos elementos obligatorios (Calzada + Riostra), así que los
+    // tests que no se ocupan del requisito de elementos necesitan agregar como mucho una Riostra.
+    private fun challenge(budget: Double = 500.0, demand: DemandLevel = DemandLevel.LOW, maxSlope: Double = 0.6, scenario: ScenarioType = ScenarioType.FOREST) = BridgeChallengeSpec(
+        id = "c1", scenario = scenario, orderIndex = 1, name = "Test",
         spanUnits = 6.0, leftBank = GridPoint(0.0, 0.0), rightBank = GridPoint(6.0, 0.0),
         budget = budget, demand = demand, maxSlope = maxSlope, narrativeIntro = "x", narrativeSuccess = "y"
     )
@@ -54,13 +56,22 @@ class BridgeEngineTest {
     }
 
     @Test
-    fun `puente de acero simple con apoyo central aprueba`() {
+    fun `puente de acero simple con apoyo central y riostra aprueba`() {
         val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true))
-        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"))
+        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"), member("brace1", "L", "M", "steel", MemberRole.BRACE))
         val r = BridgeEngine.simulate(BridgeDesignSpec("d3", "c1", "t3", nodes, members), challenge(budget = 200.0), materials)
         assertTrue(r.passed)
         assertTrue(r.stars >= 1)
         assertEquals(3, r.routeNodeIds.size)
+    }
+
+    @Test
+    fun `calzada sola no aprueba si el escenario exige mas elementos`() {
+        val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true))
+        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"))
+        val r = BridgeEngine.simulate(BridgeDesignSpec("d3b", "c1", "t3b", nodes, members), challenge(budget = 200.0), materials)
+        assertFalse(r.passed)
+        assertTrue(FailureReason.MISSING_ELEMENTS in r.failureReasons)
     }
 
     @Test
@@ -130,15 +141,15 @@ class BridgeEngineTest {
     @Test
     fun `margen de presupuesto alto y bajo esfuerzo dan 3 estrellas`() {
         val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true))
-        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"))
+        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"), member("brace1", "L", "M", "steel", MemberRole.BRACE))
         val r = BridgeEngine.simulate(BridgeDesignSpec("d10a", "c1", "t10a", nodes, members), challenge(budget = 1000.0, demand = DemandLevel.LOW), materials)
         assertEquals(3, r.stars)
     }
 
     @Test
     fun `presupuesto ajustado que aprueba da 1 estrella`() {
-        val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true))
-        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"))
+        val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true), node("B", 0.1, -0.1))
+        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"), member("brace1", "L", "B", "wood", MemberRole.BRACE))
         val r = BridgeEngine.simulate(BridgeDesignSpec("d10b", "c1", "t10b", nodes, members), challenge(budget = 38.0, demand = DemandLevel.LOW), materials)
         assertTrue(r.passed)
         assertEquals(1, r.stars)
@@ -183,7 +194,7 @@ class BridgeEngineTest {
     @Test
     fun `feedback de exito menciona presupuesto usado`() {
         val nodes = listOf(node("L", 0.0, 0.0, AnchorSide.LEFT, true), node("M", 3.0, 0.0, fixed = true), node("R", 6.0, 0.0, AnchorSide.RIGHT, true))
-        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"))
+        val members = listOf(member("m1", "L", "M", "steel"), member("m2", "M", "R", "steel"), member("brace1", "L", "M", "steel", MemberRole.BRACE))
         val r = BridgeEngine.simulate(BridgeDesignSpec("d15", "c1", "t15", nodes, members), challenge(budget = 1000.0), materials)
         assertTrue(r.feedback.isNotEmpty())
         assertTrue(r.feedback.first().contains("presupuesto", ignoreCase = true))

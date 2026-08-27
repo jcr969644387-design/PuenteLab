@@ -45,5 +45,6 @@ enum class FailureReason(val message: String) {
     NO_VALID_ROUTE("Hay conexión, pero falta una Calzada 🛣️ completa para que pase el vehículo."),
     SLOPE_TOO_STEEP("Alguna parte de la Calzada 🛣️ está muy empinada: el vehículo no puede subir por ahí."),
     OVER_BUDGET("El diseño se pasa del presupuesto disponible."),
-    OVERLOADED("El puente no pudo soportar la carga. Revisa los materiales o agrega refuerzos.")
+    OVERLOADED("El puente no pudo soportar la carga. Revisa los materiales o agrega refuerzos."),
+    MISSING_ELEMENTS("A este puente le faltan partes importantes.")
 }

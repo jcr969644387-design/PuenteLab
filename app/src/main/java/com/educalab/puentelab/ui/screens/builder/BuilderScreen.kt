@@ -3,7 +3,11 @@ package com.educalab.puentelab.ui.screens.builder
 import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,7 +28,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.data.local.entity.VehicleEntity
 import com.educalab.puentelab.domain.model.BridgeChallengeSpec
@@ -36,6 +43,7 @@ import com.educalab.puentelab.ui.components.BuilderCanvasView
 import com.educalab.puentelab.ui.components.ScenarioScene
 import com.educalab.puentelab.ui.theme.*
 import com.educalab.puentelab.ui.viewmodel.BuilderViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +57,41 @@ fun BuilderScreen(
     val challenge = state.challenge
     var showSaveDialog by remember { mutableStateOf(false) }
     var showInstructions by remember { mutableStateOf(false) }
+    var deleteMode by remember { mutableStateOf(false) }
     val feedback = rememberGameFeedback()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Estado de la breve animación de desvanecido al borrar una sola pieza (nodo o barra).
+    var fadingNodeId by remember { mutableStateOf<String?>(null) }
+    var fadingMemberId by remember { mutableStateOf<String?>(null) }
+    val fadeAlpha = remember { Animatable(1f) }
+
+    fun deleteNodeWithFade(id: String) {
+        if (fadingNodeId != null || fadingMemberId != null) return
+        feedback.tap()
+        fadingNodeId = id
+        scope.launch {
+            fadeAlpha.snapTo(1f)
+            fadeAlpha.animateTo(0f, animationSpec = tween(220))
+            viewModel.removeFreeNode(id)
+            fadingNodeId = null
+            fadeAlpha.snapTo(1f)
+        }
+    }
+
+    fun deleteMemberWithFade(id: String) {
+        if (fadingNodeId != null || fadingMemberId != null) return
+        feedback.tap()
+        fadingMemberId = id
+        scope.launch {
+            fadeAlpha.snapTo(1f)
+            fadeAlpha.animateTo(0f, animationSpec = tween(220))
+            viewModel.removeMember(id)
+            fadingMemberId = null
+            fadeAlpha.snapTo(1f)
+        }
+    }
 
     // La primera vez que se abre CUALQUIER desafío, se muestra sola. En las siguientes ya no
     // se abre sola (queda solo la info al tocar el "?"), y se marca como vista una sola vez.
@@ -77,7 +119,14 @@ fun BuilderScreen(
                 },
                 actions = {
                     IconButton(onClick = { feedback.tap(); showInstructions = true }) { Icon(Icons.Filled.HelpOutline, contentDescription = "Cómo jugar") }
-                    IconButton(onClick = { feedback.tap(); viewModel.clearAll() }) { Icon(Icons.Filled.RestartAlt, contentDescription = "Reiniciar diseño") }
+                    IconButton(onClick = { feedback.tap(); deleteMode = !deleteMode }) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = if (deleteMode) "Salir del modo borrar" else "Borrar una pieza",
+                            tint = if (deleteMode) SiteAmber else White
+                        )
+                    }
+                    IconButton(onClick = { feedback.tap(); deleteMode = false; viewModel.clearAll() }) { Icon(Icons.Filled.RestartAlt, contentDescription = "Reiniciar diseño") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Blueprint700, titleContentColor = White, navigationIconContentColor = White, actionIconContentColor = White)
             )
@@ -100,6 +149,27 @@ fun BuilderScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             MissionBanner(challenge, vehicle = state.testVehicle, scenarioInfo = state.scenarioInfo, materialsById = materialsById)
             BudgetBar(cost = state.liveCost, budget = challenge.budget)
+            if (deleteMode) {
+                Row(
+                    Modifier.fillMaxWidth().background(WarningRed.copy(alpha = 0.12f)).padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = WarningRed, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Modo borrar: toca una barra o un punto libre para eliminarlo.", style = MaterialTheme.typography.labelMedium, color = WarningRed)
+                }
+            } else if (state.missingRequiredRoles.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().background(SiteAmber.copy(alpha = 0.18f)).padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Aún falta: ", style = MaterialTheme.typography.labelMedium, color = Ink900)
+                    Text(
+                        state.missingRequiredRoles.joinToString("  ") { "${it.emoji} ${it.displayName}" },
+                        style = MaterialTheme.typography.labelMedium, color = Ink900, fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ScenarioScene(challenge.scenario, modifier = Modifier.fillMaxSize())
@@ -109,8 +179,17 @@ fun BuilderScreen(
                     materialsById = materialsById,
                     pendingNodeId = state.pendingNodeId,
                     spanUnits = challenge.spanUnits,
+                    deleteMode = deleteMode,
+                    fadingNodeId = fadingNodeId,
+                    fadingMemberId = fadingMemberId,
+                    fadingAlpha = fadeAlpha.value,
                     onTapNode = { feedback.tap(); viewModel.tapNode(it) },
-                    onTapEmpty = { feedback.tap(); viewModel.placeFreeNode(it) }
+                    onTapEmpty = { feedback.tap(); viewModel.placeFreeNode(it) },
+                    onDeleteNode = ::deleteNodeWithFade,
+                    onDeleteMember = ::deleteMemberWithFade,
+                    onDeleteBlocked = {
+                        Toast.makeText(context, "Ese punto es fijo del nivel: no se puede borrar", Toast.LENGTH_SHORT).show()
+                    }
                 )
             }
         }
@@ -304,28 +383,25 @@ private fun BuilderToolbar(
                 val selected = material.id == state.selectedMaterialId
                 val unlocked = material.unlockLevel <= state.playerLevel
                 val recommended = material.id == recommendedMaterialId
-                val label = when {
-                    !unlocked -> "${material.name} 🔒 Nv.${material.unlockLevel}"
-                    recommended -> "⭐ ${material.name}"
-                    else -> material.name
-                }
-                AssistChip(
-                    onClick = { feedback.tap(); viewModel.selectMaterial(material.id) },
+                SelectorItem(
+                    glyph = materialEmoji(material.id),
+                    label = if (unlocked) material.name else "Nv.${material.unlockLevel} 🔒",
+                    selected = selected,
                     enabled = unlocked,
-                    label = { Text(label) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (selected) SiteOrange else Blueprint100,
-                        labelColor = if (selected) White else Ink900,
-                        disabledContainerColor = Blueprint100.copy(alpha = 0.4f),
-                        disabledLabelColor = Ink600.copy(alpha = 0.6f)
-                    )
+                    badge = if (recommended && unlocked) "⭐" else null,
+                    onClick = { feedback.tap(); viewModel.selectMaterial(material.id) }
                 )
             }
         }
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MemberRole.values().forEach { role ->
-                RoleButton(role, state.selectedRole == role) { feedback.tap(); viewModel.selectRole(role) }
+        LazyRow(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(MemberRole.values().toList()) { role ->
+                SelectorItem(
+                    glyph = role.emoji,
+                    label = role.displayName,
+                    selected = state.selectedRole == role,
+                    onClick = { feedback.tap(); viewModel.selectRole(role) }
+                )
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -345,9 +421,62 @@ private fun BuilderToolbar(
     }
 }
 
+/**
+ * Tarjeta compacta de selección: ícono grande arriba, texto abajo (máx. 1 línea, sin partirse
+ * letra por letra), borde de color cuando está seleccionada. Se usa tanto para materiales como
+ * para las 4 partes del puente, siempre dentro de un LazyRow para no comprimir el texto.
+ */
 @Composable
-private fun RoleButton(role: MemberRole, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text("${role.emoji} ${role.displayName}") })
+private fun SelectorItem(
+    glyph: String,
+    label: String,
+    selected: Boolean,
+    enabled: Boolean = true,
+    badge: String? = null,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(68.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) SiteOrange.copy(alpha = 0.16f) else Blueprint100)
+            .border(
+                width = if (selected) 2.dp else 0.dp,
+                color = if (selected) SiteOrange else Color.Transparent,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(contentAlignment = Alignment.TopEnd) {
+            Text(glyph, fontSize = 24.sp)
+            if (badge != null) {
+                Text(badge, fontSize = 12.sp, modifier = Modifier.offset(x = 6.dp, y = (-4).dp))
+            }
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (enabled) Ink900 else Ink600.copy(alpha = 0.6f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+private fun materialEmoji(materialId: String): String = when (materialId) {
+    "rope" -> "🧵"
+    "wood" -> "🪵"
+    "stone" -> "🪨"
+    "steel" -> "🔩"
+    "steel_cable" -> "🪢"
+    "concrete" -> "🧱"
+    "aluminum" -> "✈️"
+    "carbon_fiber" -> "⚫"
+    else -> "▪️"
 }
 
 @Composable

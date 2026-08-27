@@ -35,7 +35,8 @@ data class BuilderUiState(
     val playerLevel: Int = 1,
     val testVehicle: VehicleEntity? = null,
     val autoShowInstructions: Boolean = false,
-    val scenarioInfo: ScenarioEducationInfo? = null
+    val scenarioInfo: ScenarioEducationInfo? = null,
+    val missingRequiredRoles: Set<MemberRole> = emptySet()
 )
 
 class BuilderViewModel(
@@ -201,7 +202,13 @@ class BuilderViewModel(
             if (a != null && b != null && mat != null) cost += a.distanceTo(b) * mat.costPerUnit
         }
         cost += state.design.nodes.count { it.isUserPier } * 35.0
-        _uiState.value = state.copy(liveCost = cost)
+
+        val scenario = state.challenge?.scenario
+        val required = scenario?.let { ScenarioRequirements.requiredRoles[it] }.orEmpty()
+        val present = state.design.members.map { it.role }.toSet()
+        val missing = required - present
+
+        _uiState.value = state.copy(liveCost = cost, missingRequiredRoles = missing)
     }
 
     private fun persistDraft() {

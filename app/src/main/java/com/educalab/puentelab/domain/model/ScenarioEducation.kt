@@ -65,3 +65,18 @@ object ScenarioEducation {
         )
     )
 }
+
+/**
+ * Elementos estructurales que cada escenario exige para aprobar (además de que el puente
+ * físicamente aguante). Así el jugador no puede resolver ningún nivel usando solo Calzada:
+ * tiene que descubrir para qué sirven Torres, Cables y Riostras construyéndolos y probándolos.
+ */
+object ScenarioRequirements {
+    val requiredRoles: Map<ScenarioType, Set<MemberRole>> = mapOf(
+        ScenarioType.FOREST to setOf(MemberRole.DECK, MemberRole.BRACE),
+        ScenarioType.RIVER to setOf(MemberRole.DECK, MemberRole.TOWER, MemberRole.CABLE),
+        ScenarioType.CANYON to setOf(MemberRole.DECK, MemberRole.TOWER, MemberRole.CABLE, MemberRole.BRACE),
+        ScenarioType.MOUNTAIN to setOf(MemberRole.DECK, MemberRole.TOWER, MemberRole.BRACE),
+        ScenarioType.CITY to setOf(MemberRole.DECK, MemberRole.TOWER, MemberRole.CABLE, MemberRole.BRACE)
+    )
+}

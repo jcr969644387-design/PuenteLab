@@ -1,5 +1,11 @@
 package com.educalab.puentelab.ui.screens.materials
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.educalab.puentelab.data.local.entity.MaterialEntity
@@ -168,6 +175,20 @@ private fun MaterialIcon(material: MaterialEntity, modifier: Modifier = Modifier
     val base = runCatching { Color(android.graphics.Color.parseColor(material.colorHex)) }.getOrDefault(Blueprint500)
     val dark = base.copy(alpha = 1f).let { Color(it.red * 0.6f, it.green * 0.6f, it.blue * 0.6f, 1f) }
     val light = Color.White.copy(alpha = 0.55f)
+
+    // Animaciones sutiles: un brillo que recorre los metales, y un ligero balanceo en la cuerda.
+    val infinite = rememberInfiniteTransition(label = "materialIcon")
+    val shine by infinite.animateFloat(
+        initialValue = -0.3f, targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
+        label = "shine"
+    )
+    val sway by infinite.animateFloat(
+        initialValue = -1f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "sway"
+    )
+
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(base)) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width; val h = size.height
@@ -179,46 +200,61 @@ private fun MaterialIcon(material: MaterialEntity, modifier: Modifier = Modifier
                         yy += h * 0.22f
                     }
                 }
-                "rope" -> { // trenzado: líneas diagonales cruzadas
+                "rope" -> { // trenzado con un ligero balanceo, como una cuerda colgando
+                    val skew = sway * w * 0.06f
                     var t = -h
                     while (t < w) {
-                        drawLine(dark, Offset(t, h), Offset(t + h, 0f), strokeWidth = 2.5f)
+                        drawLine(dark, Offset(t + skew, h), Offset(t + h - skew, 0f), strokeWidth = 2.5f)
                         t += w * 0.28f
                     }
                 }
-                "stone" -> { // piedra: manchas irregulares
+                "stone" -> { // piedra con pequeñas grietas
                     drawCircle(dark, radius = w * 0.16f, center = Offset(w * 0.3f, h * 0.35f))
                     drawCircle(dark, radius = w * 0.13f, center = Offset(w * 0.68f, h * 0.6f))
                     drawCircle(dark, radius = w * 0.1f, center = Offset(w * 0.32f, h * 0.75f))
+                    drawLine(dark, Offset(w * 0.45f, h * 0.15f), Offset(w * 0.6f, h * 0.5f), strokeWidth = 1.5f)
+                    drawLine(dark, Offset(w * 0.6f, h * 0.5f), Offset(w * 0.5f, h * 0.85f), strokeWidth = 1.5f)
                 }
-                "steel" -> { // viga en "I"
+                "steel" -> { // viga en "I" con brillo que la recorre
                     drawLine(dark, Offset(w * 0.22f, h * 0.18f), Offset(w * 0.78f, h * 0.18f), strokeWidth = 5f)
                     drawLine(dark, Offset(w * 0.5f, h * 0.18f), Offset(w * 0.5f, h * 0.82f), strokeWidth = 5f)
                     drawLine(dark, Offset(w * 0.22f, h * 0.82f), Offset(w * 0.78f, h * 0.82f), strokeWidth = 5f)
+                    drawShine(shine, w, h, light)
                 }
-                "steel_cable" -> { // cable: hebras diagonales finas
+                "steel_cable" -> { // hebras trenzadas con reflejo metálico en movimiento
                     var t = 0f
                     while (t < w + h) {
                         drawLine(light, Offset(t, 0f), Offset(t - h, h), strokeWidth = 1.5f)
                         t += w * 0.2f
                     }
+                    drawShine(shine, w, h, light)
                 }
-                "concrete" -> { // hormigón: salpicado de puntos
+                "concrete" -> { // hormigón con barras de acero visibles
                     val dots = listOf(0.2f to 0.25f, 0.5f to 0.4f, 0.75f to 0.2f, 0.3f to 0.7f, 0.65f to 0.75f, 0.85f to 0.55f)
                     dots.forEach { (dx, dy) -> drawCircle(dark, radius = w * 0.045f, center = Offset(w * dx, h * dy)) }
+                    drawLine(Color.White.copy(alpha = 0.7f), Offset(w * 0.15f, h * 0.85f), Offset(w * 0.85f, h * 0.85f), strokeWidth = 2f)
+                    drawLine(Color.White.copy(alpha = 0.7f), Offset(w * 0.15f, h * 0.92f), Offset(w * 0.85f, h * 0.92f), strokeWidth = 2f)
                 }
-                "aluminum" -> { // brillo metálico: franja diagonal clara
+                "aluminum" -> { // pieza plateada ligera con brillo en movimiento
                     drawLine(light, Offset(w * 0.1f, h * 0.85f), Offset(w * 0.9f, h * 0.15f), strokeWidth = w * 0.16f)
+                    drawShine(shine, w, h, Color.White.copy(alpha = 0.4f))
                 }
-                "carbon_fiber" -> { // fibra de carbono: trama cruzada
+                "carbon_fiber" -> { // trama de fibra de carbono con efecto brillante
                     var t = 0f
                     while (t < w + h) {
                         drawLine(light, Offset(t, 0f), Offset(t - h, h), strokeWidth = 1.5f)
                         drawLine(light, Offset(t, h), Offset(t - h, 0f), strokeWidth = 1.5f)
                         t += w * 0.22f
                     }
+                    drawShine(shine, w, h, light)
                 }
             }
         }
     }
+}
+
+/** Franja diagonal clara que recorre el ícono, para dar sensación de brillo metálico. */
+private fun DrawScope.drawShine(progress: Float, w: Float, h: Float, color: Color) {
+    val x = w * progress
+    drawLine(color, Offset(x - h * 0.4f, h), Offset(x + h * 0.4f, 0f), strokeWidth = w * 0.12f)
 }
