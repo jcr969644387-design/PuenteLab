@@ -23,9 +23,10 @@ import com.educalab.puentelab.ui.screens.materials.MaterialsScreen
 import com.educalab.puentelab.ui.screens.onboarding.OnboardingScreen
 import com.educalab.puentelab.ui.screens.profile.ProfileSetupScreen
 import com.educalab.puentelab.ui.screens.progress.ProgressScreen
-import com.educalab.puentelab.ui.screens.scenarios.ScenariosScreen
+import com.educalab.puentelab.ui.screens.scenarios.ScenarioMissionsScreen
 import com.educalab.puentelab.ui.screens.settings.SettingsScreen
 import com.educalab.puentelab.ui.viewmodel.*
+import com.educalab.puentelab.domain.model.ScenarioType
 
 @Composable
 fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
@@ -51,6 +52,7 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
                     val vm: AcademyViewModel = viewModel(factory = viewModelFactory)
                     AcademyHomeScreen(
                         viewModel = vm,
+                        onOpenScenario = { scenario -> navController.navigate(Destinations.scenarioDetail(scenario)) },
                         onOpenMaterials = { navController.navigate(Destinations.MATERIALS) },
                         onOpenDesigns = { navController.navigate(Destinations.DESIGNS) },
                         onOpenProgress = { navController.navigate(Destinations.PROGRESS) },
@@ -68,9 +70,19 @@ fun PuenteLabNavGraph(viewModelFactory: ViewModelFactory) {
                 }
             })
         }
-        composable(Destinations.SCENARIOS) {
+        composable(
+            Destinations.SCENARIO_DETAIL,
+            arguments = listOf(navArgument("scenario") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val scenarioArg = backStackEntry.arguments?.getString("scenario") ?: return@composable
+            val scenario = ScenarioType.valueOf(scenarioArg)
             val vm: ScenariosViewModel = viewModel(factory = viewModelFactory)
-            ScenariosScreen(viewModel = vm, onOpenChallenge = { id -> navController.navigate(Destinations.builder(id)) })
+            ScenarioMissionsScreen(
+                scenario = scenario,
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+                onOpenChallenge = { id -> navController.navigate(Destinations.builder(id)) }
+            )
         }
         composable(Destinations.MATERIALS) {
             val vm: MaterialsViewModel = viewModel(factory = viewModelFactory)
