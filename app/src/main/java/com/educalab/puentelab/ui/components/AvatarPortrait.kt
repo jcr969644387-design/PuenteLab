@@ -71,7 +71,7 @@ fun AvatarPortrait(avatar: AvatarOption, modifier: Modifier = Modifier) {
         drawCircle(Blueprint900, radius = w * 0.025f, center = Offset(w * 0.58f, h * 0.46f))
         val smile = Path().apply {
             moveTo(w * 0.42f, h * 0.54f)
-            quadraticTo(w * 0.5f, h * 0.6f, w * 0.58f, h * 0.54f)
+            quadraticBezierTo(w * 0.5f, h * 0.6f, w * 0.58f, h * 0.54f)
         }
         drawPath(smile, Blueprint900, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.02f))
         // mejillas

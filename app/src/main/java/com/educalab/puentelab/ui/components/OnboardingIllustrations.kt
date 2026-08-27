@@ -66,7 +66,7 @@ private fun drawChild(scope: androidx.compose.ui.graphics.drawscope.DrawScope, c
         drawArc(helmet, 180f, 180f, true, topLeft = Offset(cx - headR * 1.15f, headY - headR * 1.25f), size = Size(headR * 2.3f, headR * 1.7f))
         drawRoundRect(helmet, Offset(cx - headR * 1.2f, headY - headR * 0.3f), Size(headR * 2.4f, headR * 0.35f), CornerRadius(headR * 0.15f))
         // sonrisa
-        val smile = Path().apply { moveTo(cx - headR * 0.35f, headY + headR * 0.15f); quadraticTo(cx, headY + headR * 0.5f, cx + headR * 0.35f, headY + headR * 0.15f) }
+        val smile = Path().apply { moveTo(cx - headR * 0.35f, headY + headR * 0.15f); quadraticBezierTo(cx, headY + headR * 0.5f, cx + headR * 0.35f, headY + headR * 0.15f) }
         drawPath(smile, Blueprint900, style = Stroke(width = headR * 0.12f))
     }
 }
@@ -130,8 +130,8 @@ fun SecurityIllustration(modifier: Modifier = Modifier) {
             moveTo(cx, h * 0.06f)
             lineTo(w * 0.82f, h * 0.2f)
             lineTo(w * 0.82f, h * 0.55f)
-            quadraticTo(w * 0.82f, h * 0.82f, cx, h * 0.96f)
-            quadraticTo(w * 0.18f, h * 0.82f, w * 0.18f, h * 0.55f)
+            quadraticBezierTo(w * 0.82f, h * 0.82f, cx, h * 0.96f)
+            quadraticBezierTo(w * 0.18f, h * 0.82f, w * 0.18f, h * 0.55f)
             lineTo(w * 0.18f, h * 0.2f)
             close()
         }
