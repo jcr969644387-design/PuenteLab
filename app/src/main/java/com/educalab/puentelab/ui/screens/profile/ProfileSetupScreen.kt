@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.educalab.puentelab.data.seed.AvatarCatalog
+import com.educalab.puentelab.data.seed.AvatarOption
 import com.educalab.puentelab.ui.components.AvatarPortrait
 import com.educalab.puentelab.ui.theme.*
 
@@ -23,6 +25,8 @@ fun ProfileSetupScreen(onConfirm: (alias: String, avatarId: String) -> Unit) {
     var alias by remember { mutableStateOf("") }
     var selectedAvatar by remember { mutableStateOf(AvatarCatalog.all.first().id) }
     val validName = alias.trim().isNotEmpty()
+    val boys = AvatarCatalog.all.take(4)
+    val girls = AvatarCatalog.all.drop(4)
 
     Surface(color = PaperBg, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
@@ -50,18 +54,20 @@ fun ProfileSetupScreen(onConfirm: (alias: String, avatarId: String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(AvatarCatalog.all) { avatar ->
-                    val selected = avatar.id == selectedAvatar
-                    Box(
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .clip(CircleShape)
-                            .border(width = if (selected) 3.dp else 0.dp, color = SiteOrange, shape = CircleShape)
-                            .clickable { selectedAvatar = avatar.id },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AvatarPortrait(avatar, modifier = Modifier.fillMaxSize(0.9f))
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text("CHICOS", style = MaterialTheme.typography.labelMedium, color = Ink600)
+                }
+                items(boys) { avatar ->
+                    AvatarCell(avatar, selected = avatar.id == selectedAvatar, onClick = { selectedAvatar = avatar.id })
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column {
+                        Spacer(Modifier.height(6.dp))
+                        Text("CHICAS", style = MaterialTheme.typography.labelMedium, color = Ink600)
                     }
+                }
+                items(girls) { avatar ->
+                    AvatarCell(avatar, selected = avatar.id == selectedAvatar, onClick = { selectedAvatar = avatar.id })
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -74,5 +80,19 @@ fun ProfileSetupScreen(onConfirm: (alias: String, avatarId: String) -> Unit) {
                 Text("Empezar a construir")
             }
         }
+    }
+}
+
+@Composable
+private fun AvatarCell(avatar: AvatarOption, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(CircleShape)
+            .border(width = if (selected) 3.dp else 0.dp, color = SiteOrange, shape = CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        AvatarPortrait(avatar, modifier = Modifier.fillMaxSize(0.9f))
     }
 }
